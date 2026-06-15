@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ランダムフォレスト ビジュアル</title>
+<style>
+  *{box-sizing:border-box;}
+  body{font-family:-apple-system,"Hiragino Sans","Yu Gothic",sans-serif;background:#0f1226;color:#e8eaf6;margin:0;padding:24px;line-height:1.6;}
+  h1{font-size:22px;margin:0 0 4px;} .sub{color:#9fa8da;font-size:14px;margin-bottom:18px;}
+  .panel{background:#1a1f3d;border-radius:14px;padding:20px;margin-bottom:18px;box-shadow:0 4px 16px rgba(0,0,0,.3);}
+  .row{display:flex;gap:30px;flex-wrap:wrap;align-items:flex-start;}
+  canvas{background:#0a0d1f;border-radius:10px;}
+  .side{min-width:280px;display:flex;flex-direction:column;gap:14px;}
+  .ctrl label{font-size:13px;color:#9fa8da;display:block;margin-bottom:4px;}
+  input[type=range]{width:250px;} .v{color:#fff;font-weight:bold;font-size:18px;}
+  .legend{font-size:12px;color:#9fa8da;margin-top:10px;}
+  .dot{display:inline-block;width:11px;height:11px;border-radius:50%;vertical-align:middle;margin-right:4px;}
+  .box{font-size:14px;background:#11142b;padding:12px 14px;border-radius:8px;}
+  .note{font-size:13px;color:#9fa8da;} .hl{color:#ffd54f;font-weight:bold;}
+  .buy{color:#42a5f5;} .no{color:#ff6e6e;}
+</style>
+</head>
+<body>
+  <h1>🌲🌲🌲 ランダムフォレスト — 木の多数決</h1>
+  <div class="sub">少しずつ違う決定木をたくさん作って、予測を多数決する（＝決定木のバギング）</div>
+
+  <div class="panel">
+    <div class="row">
+      <div>
+        <canvas id="cv" width="380" height="380"></canvas>
+        <div class="legend">
+          <span class="dot" style="background:#42a5f5"></span>購入した(○)
+          <span class="dot" style="background:#ff6e6e"></span>購入しない(×)<br>
+          背景：木たちの<b>多数決</b>（<span class="buy">濃い青=みんな購入と判断</span>／<span class="no">濃い赤=みんなしない</span>／<span style="color:#9fa8da">中間色=木の意見が割れている</span>）
+        </div>
+      </div>
+      <div class="side">
+        <div class="ctrl">
+          <label>木の本数</label>
+          <input id="n" type="range" min="1" max="40" step="1" value="1"><span class="v" id="nV">1</span> 本
+        </div>
+        <div class="box" id="info"></div>
+        <div class="note" id="note"></div>
+      </div>
+    </div>
+  </div>
+
+<script>
+  const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+  const W=cv.width,H=cv.height,pad=40;
+  const pts=[
+    [25,600,1],[30,700,1],[28,520,1],[35,820,1],[33,560,1],[38,900,1],[27,480,1],
+    [45,820,1],[50,900,1],[55,760,1],[48,700,1],[60,860,1],[52,720,1],
+    [25,300,0],[30,400,0],[35,350,0],[22,440,0],[38,300,0],[32,420,0],
+    [45,400,0],[50,520,0],[55,300,0],[60,600,0],[48,560,0],[58,640,0],[29,840,0]
+  ];
+  const xMin=20,xMax=65,yMin=250,yMax=950;
+  const sx=x=>pad+(x-xMin)/(xMax-xMin)*(W-pad-15);
+  const sy=y=>H-pad-(y-yMin)/(yMax-yMin)*(H-pad-15);
+
+  function gini(rows){if(!rows.length)return 0;let c=0;for(const r of rows)c+=r[2];const p=c/rows.length;return 1-p*p-(1-p)*(1-p);}
+  function majority(rows){let c=0;for(const r of rows)c+=r[2];return c*2>=rows.length?1:0;}
+  // ランダムフォレスト：各分割で特徴をランダムに1つ選ぶ＋ブートストラップ標本
+  function bestSplitRF(rows){
+    const f=Math.random()<0.5?0:1; // 2特徴のうちランダムに1つ
+    let best=null,bestG=gini(rows);
+    const vals=[...new Set(rows.map(r=>r[f]))].sort((a,b)=>a-b);
+    for(let i=0;i<vals.length-1;i++){
+      const th=(vals[i]+vals[i+1])/2;
+      const L=rows.filter(r=>r[f]<th),R=rows.filter(r=>r[f]>=th);
+      if(!L.length||!R.length)continue;
+      const g=(L.length*gini(L)+R.length*gini(R))/rows.length;
+      if(g<bestG-1e-9){bestG=g;best={f,th,L,R};}
+    }
+    return best;
+  }
+  function build(rows,depth,maxD){
+    if(depth>=maxD||gini(rows)<1e-9||rows.length<2)return {leaf:true,cls:majority(rows)};
+    const s=bestSplitRF(rows);
+    if(!s)return {leaf:true,cls:majority(rows)};
+    return {leaf:false,f:s.f,th:s.th,L:build(s.L,depth+1,maxD),R:build(s.R,depth+1,maxD)};
+  }
+  function bootstrap(rows){const o=[];for(let i=0;i<rows.length;i++)o.push(rows[(Math.random()*rows.length)|0]);return o;}
+  function predict(node,x,y){const v=[x,y];while(!node.leaf)node=v[node.f]<node.th?node.L:node.R;return node.cls;}
+
+  // 木を40本まとめて作っておく（スライダーは先頭N本を使う＝安定して増える）
+  const POOL=[]; for(let i=0;i<40;i++)POOL.push(build(bootstrap(pts),0,5));
+
+  function fracBuy(x,y,N){let c=0;for(let i=0;i<N;i++)c+=predict(POOL[i],x,y);return c/N;}
+
+  function draw(){
+    const N=+document.getElementById('n').value;
+    document.getElementById('nV').textContent=N;
+    ctx.clearRect(0,0,W,H);
+    const step=6;
+    for(let px=pad;px<W-15;px+=step)for(let py=15;py<H-pad;py+=step){
+      const x=xMin+(px-pad)/(W-pad-15)*(xMax-xMin);
+      const y=yMin+(H-pad-py)/(H-pad-15)*(yMax-yMin);
+      const p=fracBuy(x,y,N); // 0..1 購入と判断した木の割合
+      // 青(購入)と赤(しない)を割合でブレンド
+      const r=Math.round(255*(1-p)+66*p), g=Math.round(110*(1-p)+165*p), b=Math.round(110*(1-p)+245*p);
+      ctx.fillStyle=`rgba(${r},${g},${b},0.30)`;
+      ctx.fillRect(px,py,step,step);
+    }
+    ctx.fillStyle='#5c6bc0';ctx.font='11px sans-serif';
+    ctx.fillText('年齢→',W-55,H-22);
+    ctx.save();ctx.translate(12,30);ctx.rotate(-Math.PI/2);ctx.fillText('年収→',0,0);ctx.restore();
+    let cor=0;
+    for(const[x,y,lab]of pts){
+      if((fracBuy(x,y,N)>=0.5?1:0)===lab)cor++;
+      ctx.fillStyle=lab?'#42a5f5':'#ff6e6e';
+      ctx.beginPath();ctx.arc(sx(x),sy(y),6,0,7);ctx.fill();
+      ctx.strokeStyle='#0a0d1f';ctx.lineWidth=1.5;ctx.stroke();
+    }
+    document.getElementById('info').innerHTML=`木の本数：<span class="hl">${N}</span> 本<br>訓練正答率：<span class="hl">${Math.round(cor/pts.length*100)}%</span>`;
+    const note=document.getElementById('note');
+    if(N===1) note.innerHTML='1本だけ＝ただの決定木。<span class="hl">境界がカクカク・極端</span>で、その木のクセがそのまま出る。';
+    else if(N<=5) note.innerHTML='数本で多数決。少しずつ<span class="hl">境界がなめらか</span>になってきた。';
+    else note.innerHTML='たくさんの木で多数決＝<span class="hl">境界が安定・なめらか</span>。1本のクセやノイズの影響が薄まり、過学習に強くなる。中間色＝木の意見が割れている"自信のない"ゾーン。';
+  }
+  document.getElementById('n').addEventListener('input',draw);
+  draw();
+</script>
+</body>
+</html>

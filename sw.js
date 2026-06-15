@@ -1,0 +1,49 @@
+// G検定ビジュアル教材 Service Worker（オフライン対応）
+const CACHE = 'gken-visual-v1';
+const ASSETS = [
+  './',
+  './00_目次.html',
+  './学習ノート.html',
+  './01_畳み込み出力サイズ.html',
+  './02_線形回帰.html',
+  './03_ロジスティック回帰.html',
+  './04_直線で分類する失敗例.html',
+  './05_SVMマージン最大化.html',
+  './06_決定木.html',
+  './07_ランダムフォレスト.html',
+  './08_勾配ブースティング.html',
+  './09_kNN.html',
+  './10_評価指標.html',
+  './11_ROC曲線とAUC.html',
+  './12_AUCの大きさ.html',
+  './marked.min.js',
+  './manifest.json',
+  './icon-192.png',
+  './icon-512.png',
+  './apple-touch-icon.png'
+];
+
+self.addEventListener('install', e => {
+  e.waitUntil(
+    caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting())
+  );
+});
+
+self.addEventListener('activate', e => {
+  e.waitUntil(
+    caches.keys().then(keys =>
+      Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
+    ).then(() => self.clients.claim())
+  );
+});
+
+// キャッシュ優先（オフラインでも動く）。無ければネットから取得してキャッシュ。
+self.addEventListener('fetch', e => {
+  e.respondWith(
+    caches.match(e.request).then(r => r || fetch(e.request).then(resp => {
+      const copy = resp.clone();
+      caches.open(CACHE).then(c => c.put(e.request, copy)).catch(() => {});
+      return resp;
+    }).catch(() => r))
+  );
+});

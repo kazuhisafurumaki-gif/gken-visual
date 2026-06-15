@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>k-NN ビジュアル</title>
+<style>
+  *{box-sizing:border-box;}
+  body{font-family:-apple-system,"Hiragino Sans","Yu Gothic",sans-serif;background:#0f1226;color:#e8eaf6;margin:0;padding:24px;line-height:1.6;}
+  h1{font-size:22px;margin:0 0 4px;} .sub{color:#9fa8da;font-size:14px;margin-bottom:18px;}
+  .panel{background:#1a1f3d;border-radius:14px;padding:20px;margin-bottom:18px;box-shadow:0 4px 16px rgba(0,0,0,.3);}
+  .row{display:flex;gap:30px;flex-wrap:wrap;align-items:flex-start;}
+  canvas{background:#0a0d1f;border-radius:10px;cursor:crosshair;}
+  .side{min-width:260px;display:flex;flex-direction:column;gap:14px;}
+  .ctrl label{font-size:13px;color:#9fa8da;display:block;margin-bottom:4px;}
+  input[type=range]{width:230px;} .v{color:#fff;font-weight:bold;font-size:18px;}
+  .legend{font-size:12px;color:#9fa8da;margin-top:10px;}
+  .dot{display:inline-block;width:11px;height:11px;border-radius:50%;vertical-align:middle;margin-right:4px;}
+  .box{font-size:14px;background:#11142b;padding:12px 14px;border-radius:8px;}
+  .big{font-size:22px;font-weight:bold;}
+  .note{font-size:13px;color:#9fa8da;} .hl{color:#ffd54f;font-weight:bold;}
+</style>
+</head>
+<body>
+  <h1>🎯 k-NN（k近傍法）— ご近所の多数決</h1>
+  <div class="sub">新しい点を、近くの k 個の正解ラベルの多数決で分類する（例：年齢・年収→購入）</div>
+
+  <div class="panel">
+    <div class="row">
+      <div>
+        <canvas id="cv" width="380" height="380"></canvas>
+        <div class="legend">
+          <span class="dot" style="background:#42a5f5"></span>購入した(○)
+          <span class="dot" style="background:#ff6e6e"></span>購入しない(×)<br>
+          🖱️ <b>マウスを図の上で動かす</b>と、その地点の「ご近所 k個」と多数決の結果が出ます。背景＝k-NNの予測領域。
+        </div>
+      </div>
+      <div class="side">
+        <div class="ctrl">
+          <label>k（見るご近所の数）</label>
+          <input id="k" type="range" min="1" max="15" step="2" value="3"><span class="v" id="kV">3</span> 個
+        </div>
+        <div class="box" id="result">図の上にマウスを乗せてみてください 🖱️</div>
+        <div class="note" id="note">k=1だと一番近い1個に従う（境界がカクカク＝過学習気味）。kを大きくすると多数決が安定し、境界がなめらかになる。</div>
+      </div>
+    </div>
+  </div>
+
+<script>
+  const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+  const W=cv.width,H=cv.height,pad=40;
+  const pts=[
+    [25,600,1],[30,700,1],[28,520,1],[35,820,1],[33,560,1],[38,900,1],[27,480,1],
+    [45,820,1],[50,900,1],[55,760,1],[48,700,1],[60,860,1],[52,720,1],
+    [25,300,0],[30,400,0],[35,350,0],[22,440,0],[38,300,0],[32,420,0],
+    [45,400,0],[50,520,0],[55,300,0],[60,600,0],[48,560,0],[58,640,0],[29,840,0]
+  ];
+  const xMin=20,xMax=65,yMin=250,yMax=950;
+  const sx=x=>pad+(x-xMin)/(xMax-xMin)*(W-pad-15);
+  const sy=y=>H-pad-(y-yMin)/(yMax-yMin)*(H-pad-15);
+  // 画面座標で距離を測る（見た目の近さ＝実際の近さに）
+  const SP=pts.map(p=>[sx(p[0]),sy(p[1]),p[2]]);
+  let mouse=null;
+
+  function knn(px,py,k){
+    const d=SP.map(p=>[(p[0]-px)**2+(p[1]-py)**2,p[2]]).sort((a,b)=>a[0]-b[0]);
+    let c1=0;for(let i=0;i<k;i++)c1+=d[i][1];
+    return {cls:c1*2>=k?1:0, c1, c0:k-c1, near:d.slice(0,k)};
+  }
+
+  function draw(){
+    const k=+document.getElementById('k').value;
+    document.getElementById('kV').textContent=k;
+    ctx.clearRect(0,0,W,H);
+    // decision regions
+    const step=8;
+    for(let X=pad;X<W-15;X+=step)for(let Y=15;Y<H-pad;Y+=step){
+      const c=knn(X+step/2,Y+step/2,k).cls;
+      ctx.fillStyle=c?'rgba(66,165,245,.16)':'rgba(255,110,110,.14)';
+      ctx.fillRect(X,Y,step,step);
+    }
+    ctx.fillStyle='#5c6bc0';ctx.font='11px sans-serif';
+    ctx.fillText('年齢→',W-55,H-22);
+    ctx.save();ctx.translate(12,30);ctx.rotate(-Math.PI/2);ctx.fillText('年収→',0,0);ctx.restore();
+    // neighbor lines
+    if(mouse){
+      const r=knn(mouse[0],mouse[1],k);
+      // radius circle to farthest neighbor
+      const far=Math.sqrt(r.near[r.near.length-1][0]);
+      ctx.strokeStyle='rgba(255,213,79,.4)';ctx.lineWidth=1.5;ctx.setLineDash([4,3]);
+      ctx.beginPath();ctx.arc(mouse[0],mouse[1],far,0,7);ctx.stroke();ctx.setLineDash([]);
+    }
+    // points
+    for(const[x,y,lab]of pts){ctx.fillStyle=lab?'#42a5f5':'#ff6e6e';ctx.beginPath();ctx.arc(sx(x),sy(y),6,0,7);ctx.fill();ctx.strokeStyle='#0a0d1f';ctx.lineWidth=1.2;ctx.stroke();}
+    // query point + neighbor connections
+    if(mouse){
+      const r=knn(mouse[0],mouse[1],k);
+      for(const n of r.near){ // find screen pos of neighbor
+        const sp=SP.find(p=>p[0]===n[0+0]); // approximate by stored
+      }
+      // draw lines to k nearest (recompute positions)
+      const d=SP.map((p,i)=>[(p[0]-mouse[0])**2+(p[1]-mouse[1])**2,i]).sort((a,b)=>a[0]-b[0]).slice(0,k);
+      for(const[,i]of d){ctx.strokeStyle='rgba(255,213,79,.7)';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(mouse[0],mouse[1]);ctx.lineTo(SP[i][0],SP[i][1]);ctx.stroke();}
+      // query marker
+      ctx.fillStyle=r.cls?'#42a5f5':'#ff6e6e';ctx.strokeStyle='#ffd54f';ctx.lineWidth=3;
+      ctx.beginPath();ctx.arc(mouse[0],mouse[1],8,0,7);ctx.fill();ctx.stroke();
+      document.getElementById('result').innerHTML=
+        `ご近所 ${k}個の内訳：<br>`+
+        `<span style="color:#42a5f5">購入 ${r.c1}個</span> ／ <span style="color:#ff6e6e">しない ${r.c0}個</span><br>`+
+        `→ 多数決の結果：<span class="big" style="color:${r.cls?'#42a5f5':'#ff6e6e'}">${r.cls?'購入○':'しない×'}</span>`;
+    }
+  }
+  cv.addEventListener('mousemove',e=>{const rc=cv.getBoundingClientRect();mouse=[e.clientX-rc.left,e.clientY-rc.top];draw();});
+  cv.addEventListener('mouseleave',()=>{mouse=null;draw();});
+  document.getElementById('k').addEventListener('input',draw);
+  draw();
+</script>
+</body>
+</html>

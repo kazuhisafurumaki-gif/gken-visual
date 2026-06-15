@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>線形回帰 ビジュアル</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, "Hiragino Sans", "Yu Gothic", sans-serif;
+    background:#0f1226; color:#e8eaf6; margin:0; padding:24px; line-height:1.6; }
+  h1 { font-size:22px; margin:0 0 4px; }
+  .sub { color:#9fa8da; font-size:14px; margin-bottom:18px; }
+  .panel { background:#1a1f3d; border-radius:14px; padding:20px; margin-bottom:18px; box-shadow:0 4px 16px rgba(0,0,0,.3); }
+  .row { display:flex; gap:30px; flex-wrap:wrap; align-items:flex-start; }
+  canvas { background:#0a0d1f; border-radius:10px; }
+  .ctrls { display:flex; flex-direction:column; gap:16px; min-width:230px; }
+  .ctrl label { font-size:13px; color:#9fa8da; display:block; margin-bottom:4px; }
+  .ctrl .v { color:#fff; font-weight:bold; font-size:16px; }
+  input[type=range]{ width:210px; }
+  .err { font-size:14px; }
+  .errbig { font-size:30px; font-weight:bold; color:#ff6e6e; }
+  .errbig.good { color:#4caf50; }
+  button { background:#7c4dff; color:#fff; border:none; padding:11px 18px; border-radius:8px; font-size:14px; font-weight:bold; cursor:pointer; }
+  button:hover{ background:#9575ff; }
+  .legend { font-size:12px; color:#9fa8da; margin-top:10px; }
+  .dot{ display:inline-block;width:10px;height:10px;border-radius:50%;vertical-align:middle;margin-right:4px;}
+  .formula{ font-size:17px; background:#11142b; padding:12px 14px; border-radius:8px; border-left:4px solid #7c4dff; margin-top:8px;}
+  .formula b{color:#ffd54f;}
+  .note{font-size:13px;color:#9fa8da;margin-top:8px;}
+  .hl{color:#ffd54f;font-weight:bold;} .hlr{color:#ff6e6e;font-weight:bold;} .hlg{color:#4caf50;font-weight:bold;}
+</style>
+</head>
+<body>
+  <h1>📈 線形回帰 — 「直線を当てはめる」を体感する</h1>
+  <div class="sub">例：部屋の広さ（㎡）から 家賃（万円）を予測する</div>
+
+  <div class="panel">
+    <div class="row">
+      <div>
+        <canvas id="cv" width="460" height="380"></canvas>
+        <div class="legend">
+          <span class="dot" style="background:#42a5f5"></span>実データ（正解つき）
+          <span class="dot" style="background:#ffd54f"></span>予測の直線
+          <span class="dot" style="background:#ff6e6e"></span>誤差（正解と予測のズレ）
+        </div>
+      </div>
+      <div class="ctrls">
+        <div class="ctrl">
+          <label>傾き a（広さ1㎡あたり家賃いくら上がるか）</label>
+          <input id="a" type="range" min="0" max="0.6" step="0.01" value="0.1">
+          <span class="v" id="aV">0.10</span> 万円/㎡
+        </div>
+        <div class="ctrl">
+          <label>切片 b（基本料金）</label>
+          <input id="b" type="range" min="0" max="8" step="0.1" value="1">
+          <span class="v" id="bV">1.0</span> 万円
+        </div>
+        <div class="formula" id="formula"></div>
+        <div class="err">誤差の合計（二乗和）：<br><span class="errbig" id="err">—</span></div>
+        <button id="best">✨ 最小二乗法で最適な直線にする</button>
+        <div class="note">スライダーで直線を動かすと、赤い誤差線が伸び縮みします。<br><span class="hlr">赤い線（誤差）の二乗の合計</span>が一番小さくなる直線が「正解」。それを一発で求めるのが<span class="hl">最小二乗法</span>。</div>
+      </div>
+    </div>
+  </div>
+
+<script>
+  const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
+  const W=cv.width, H=cv.height, pad=46;
+  // データ（広さ㎡, 家賃万円）正解つき
+  const data=[[15,3.0],[20,3.6],[25,5.2],[30,5.6],[35,7.4],[40,7.9],[45,9.8],[50,10.1],[55,12.0],[60,12.4]];
+  const xMin=10,xMax=65,yMin=0,yMax=15;
+  const sx=x=>pad+(x-xMin)/(xMax-xMin)*(W-pad-15);
+  const sy=y=>H-pad-(y-yMin)/(yMax-yMin)*(H-pad-15);
+
+  function lsq(){ // least squares
+    const n=data.length; let sX=0,sY=0,sXY=0,sXX=0;
+    for(const[x,y]of data){sX+=x;sY+=y;sXY+=x*y;sXX+=x*x;}
+    const a=(n*sXY-sX*sY)/(n*sXX-sX*sX);
+    const b=(sY-a*sX)/n; return {a,b};
+  }
+  const opt=lsq();
+
+  function draw(){
+    const a=+document.getElementById('a').value, b=+document.getElementById('b').value;
+    document.getElementById('aV').textContent=a.toFixed(2);
+    document.getElementById('bV').textContent=b.toFixed(1);
+    ctx.clearRect(0,0,W,H);
+    // axes
+    ctx.strokeStyle='#2a3158'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(pad,sy(yMin)); ctx.lineTo(sx(xMax),sy(yMin)); ctx.moveTo(pad,sy(yMin)); ctx.lineTo(pad,sy(yMax)); ctx.stroke();
+    ctx.fillStyle='#5c6bc0'; ctx.font='11px sans-serif';
+    ctx.fillText('広さ→',sx(xMax)-30,sy(yMin)+22);
+    ctx.save();ctx.translate(14,sy(yMax)+40);ctx.rotate(-Math.PI/2);ctx.fillText('家賃→',0,0);ctx.restore();
+    // line
+    ctx.strokeStyle='#ffd54f'; ctx.lineWidth=2.5;
+    ctx.beginPath(); ctx.moveTo(sx(xMin),sy(a*xMin+b)); ctx.lineTo(sx(xMax),sy(a*xMax+b)); ctx.stroke();
+    // residuals + points
+    let sse=0;
+    for(const[x,y]of data){
+      const pred=a*x+b; const e=y-pred; sse+=e*e;
+      ctx.strokeStyle='rgba(255,110,110,.8)'; ctx.lineWidth=2;
+      ctx.beginPath(); ctx.moveTo(sx(x),sy(y)); ctx.lineTo(sx(x),sy(pred)); ctx.stroke();
+      ctx.fillStyle='#42a5f5'; ctx.beginPath(); ctx.arc(sx(x),sy(y),5,0,7); ctx.fill();
+    }
+    document.getElementById('formula').innerHTML=
+      `予測式：家賃 = <b>${a.toFixed(2)}</b> × 広さ + <b>${b.toFixed(1)}</b>`;
+    const el=document.getElementById('err');
+    el.textContent=sse.toFixed(2);
+    el.className='errbig'+(sse<opt_sse*1.05?' good':'');
+  }
+  // optimal sse
+  let opt_sse=0; for(const[x,y]of data){const e=y-(opt.a*x+opt.b);opt_sse+=e*e;}
+
+  ['a','b'].forEach(id=>document.getElementById(id).addEventListener('input',draw));
+  document.getElementById('best').addEventListener('click',()=>{
+    // animate to optimal
+    let a0=+document.getElementById('a').value, b0=+document.getElementById('b').value;
+    let t=0; const iv=setInterval(()=>{
+      t+=0.08; if(t>=1){t=1;clearInterval(iv);}
+      document.getElementById('a').value=(a0+(opt.a-a0)*t).toFixed(2);
+      document.getElementById('b').value=(b0+(opt.b-b0)*t).toFixed(1);
+      draw();
+    },30);
+  });
+  draw();
+</script>
+</body>
+</html>

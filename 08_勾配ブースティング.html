@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>勾配ブースティング ビジュアル</title>
+<style>
+  *{box-sizing:border-box;}
+  body{font-family:-apple-system,"Hiragino Sans","Yu Gothic",sans-serif;background:#0f1226;color:#e8eaf6;margin:0;padding:24px;line-height:1.6;}
+  h1{font-size:22px;margin:0 0 4px;} .sub{color:#9fa8da;font-size:14px;margin-bottom:18px;}
+  .panel{background:#1a1f3d;border-radius:14px;padding:20px;margin-bottom:18px;box-shadow:0 4px 16px rgba(0,0,0,.3);}
+  .row{display:flex;gap:30px;flex-wrap:wrap;align-items:flex-start;}
+  canvas{background:#0a0d1f;border-radius:10px;display:block;margin-bottom:6px;}
+  .cap{font-size:12px;color:#9fa8da;margin-bottom:14px;}
+  .side{min-width:300px;display:flex;flex-direction:column;gap:14px;}
+  .ctrl label{font-size:13px;color:#9fa8da;display:block;margin-bottom:4px;}
+  input[type=range]{width:260px;} .v{color:#fff;font-weight:bold;font-size:18px;}
+  .tree{font-family:ui-monospace,monospace;font-size:13px;background:#11142b;padding:14px;border-radius:8px;white-space:pre-wrap;line-height:1.6;}
+  .box{font-size:14px;background:#11142b;padding:12px 14px;border-radius:8px;}
+  .errbig{font-size:24px;font-weight:bold;color:#ff8a65;}
+  .note{font-size:13px;color:#9fa8da;} .hl{color:#ffd54f;font-weight:bold;} .cold{color:#64b5f6;} .hot{color:#ff8a65;}
+</style>
+</head>
+<body>
+  <h1>🏆 勾配ブースティング — 各木の「中身」を見る</h1>
+  <div class="sub">例：気温 → アイス売上。木を1本ずつ足して、ズレ（残差）を潰していく</div>
+
+  <div class="panel">
+    <div class="row">
+      <div>
+        <canvas id="cvTop" width="460" height="240"></canvas>
+        <div class="cap">【上】累計の予測　<span style="color:#42a5f5">●実データ</span> / <span style="color:#ffd54f">━今の予測(合計)</span> / <span style="color:#ff8a65">┃残差</span></div>
+        <canvas id="cvBot" width="460" height="240"></canvas>
+        <div class="cap">【下】<b>いま足した木の中身</b>　<span style="color:#ff8a65">●その時点のズレ(残差)</span> / <span style="color:#80cbc4">━この木が出す補正(階段)</span> / <span style="color:#ce93d8">┊区切り(しきい値)</span></div>
+      </div>
+      <div class="side">
+        <div class="ctrl">
+          <label>足した木の本数</label>
+          <input id="n" type="range" min="0" max="30" step="1" value="1"><span class="v" id="nV">1</span> 本
+        </div>
+        <div class="box">残っているズレの合計：<br><span class="errbig" id="err">—</span></div>
+        <div class="tree" id="tree"></div>
+        <div class="note" id="note"></div>
+      </div>
+    </div>
+  </div>
+
+<script>
+  const topEl=document.getElementById('cvTop'),tc=topEl.getContext('2d');
+  const botEl=document.getElementById('cvBot'),bc=botEl.getContext('2d');
+  const data=[[10,8],[11,7],[12,10],[13,12],[14,9],[15,11],[16,14],[17,17],[18,20],[19,24],
+    [20,28],[21,30],[22,33],[23,36],[24,38],[25,40],[26,42],[27,44],[28,40],[29,45],[30,48],[31,50],[32,52],[33,53],[34,50]];
+  const xs=data.map(d=>d[0]), ys=data.map(d=>d[1]);
+  const xMin=9,xMax=35; const lr=0.35;
+  const pad=46,W=460,H=240;
+  const sx=x=>pad+(x-xMin)/(xMax-xMin)*(W-pad-15);
+
+  function fitStump(res){
+    let best=null,bestSSE=Infinity;
+    const vals=[...new Set(xs)].sort((a,b)=>a-b);
+    for(let i=0;i<vals.length-1;i++){
+      const th=(vals[i]+vals[i+1])/2;
+      let ls=0,ln=0,rs=0,rn=0;
+      for(let k=0;k<xs.length;k++){if(xs[k]<th){ls+=res[k];ln++;}else{rs+=res[k];rn++;}}
+      if(!ln||!rn)continue;
+      const lv=ls/ln,rv=rs/rn;
+      let sse=0;for(let k=0;k<xs.length;k++){const p=xs[k]<th?lv:rv;sse+=(res[k]-p)**2;}
+      if(sse<bestSSE){bestSSE=sse;best={th,lv,rv};}
+    }
+    return best;
+  }
+  // 逐次構築：各木の「フィット前の残差」と「stump」を記録
+  const base=ys.reduce((a,b)=>a+b,0)/ys.length;
+  const stumps=[], resHist=[];
+  let preds=ys.map(()=>base);
+  for(let r=0;r<30;r++){
+    const res=ys.map((y,k)=>y-preds[k]);
+    resHist.push(res.slice());
+    const s=fitStump(res); stumps.push(s);
+    for(let k=0;k<xs.length;k++)preds[k]+=lr*(xs[k]<s.th?s.lv:s.rv);
+  }
+  function predictAt(x,N){let p=base;for(let i=0;i<N;i++)p+=lr*(x<stumps[i].th?stumps[i].lv:stumps[i].rv);return p;}
+
+  function drawTop(N){
+    const yMin=0,yMax=60; const sy=y=>H-pad-(y-yMin)/(yMax-yMin)*(H-pad-20);
+    tc.clearRect(0,0,W,H);
+    tc.strokeStyle='#2a3158';tc.lineWidth=1;tc.beginPath();tc.moveTo(pad,sy(yMin));tc.lineTo(sx(xMax),sy(yMin));tc.moveTo(pad,sy(yMin));tc.lineTo(pad,sy(yMax));tc.stroke();
+    tc.fillStyle='#5c6bc0';tc.font='11px sans-serif';tc.fillText('気温→',sx(xMax)-38,sy(yMin)+18);
+    tc.save();tc.translate(13,sy(yMax)+40);tc.rotate(-Math.PI/2);tc.fillText('売上→',0,0);tc.restore();
+    tc.strokeStyle='#ffd54f';tc.lineWidth=2.5;tc.beginPath();let f=true;
+    for(let x=xMin;x<=xMax;x+=0.1){const X=sx(x),Y=sy(predictAt(x,N));f?(tc.moveTo(X,Y),f=false):tc.lineTo(X,Y);}tc.stroke();
+    let sse=0;
+    for(let k=0;k<xs.length;k++){const pr=predictAt(xs[k],N);sse+=Math.abs(ys[k]-pr);
+      tc.strokeStyle='rgba(255,138,101,.75)';tc.lineWidth=2;tc.beginPath();tc.moveTo(sx(xs[k]),sy(ys[k]));tc.lineTo(sx(xs[k]),sy(pr));tc.stroke();
+      tc.fillStyle='#42a5f5';tc.beginPath();tc.arc(sx(xs[k]),sy(ys[k]),4.5,0,7);tc.fill();}
+    document.getElementById('err').textContent=sse.toFixed(1);
+  }
+
+  function drawBot(N){
+    bc.clearRect(0,0,W,H);
+    if(N<1){bc.fillStyle='#5c6bc0';bc.font='14px sans-serif';bc.fillText('木を1本以上足すと、ここに「その木の中身」が出ます',40,H/2);document.getElementById('tree').textContent='（木0本：まだ予測は平均値だけ）';return;}
+    const idx=N-1; const res=resHist[idx]; const s=stumps[idx];
+    // residual range
+    let mx=0; for(const r of res)mx=Math.max(mx,Math.abs(r)); mx=Math.max(mx,Math.abs(s.lv),Math.abs(s.rv))*1.15||1;
+    const sy=v=>H/2 - v/mx*(H/2-24);
+    // zero line
+    bc.strokeStyle='#3a4170';bc.lineWidth=1;bc.beginPath();bc.moveTo(pad,sy(0));bc.lineTo(sx(xMax),sy(0));bc.stroke();
+    bc.fillStyle='#5c6bc0';bc.font='11px sans-serif';bc.fillText('ズレ0',4,sy(0)+4);bc.fillText('気温→',sx(xMax)-38,sy(0)+18);
+    // split threshold
+    bc.strokeStyle='#ce93d8';bc.lineWidth=2;bc.setLineDash([5,4]);bc.beginPath();bc.moveTo(sx(s.th),20);bc.lineTo(sx(s.th),H-20);bc.stroke();bc.setLineDash([]);
+    bc.fillStyle='#ce93d8';bc.fillText('区切り '+s.th.toFixed(1)+'°C',sx(s.th)-30,16);
+    // stump step (the correction the tree outputs)
+    bc.strokeStyle='#80cbc4';bc.lineWidth=3;
+    bc.beginPath();bc.moveTo(sx(xMin),sy(s.lv));bc.lineTo(sx(s.th),sy(s.lv));bc.stroke();
+    bc.beginPath();bc.moveTo(sx(s.th),sy(s.rv));bc.lineTo(sx(xMax),sy(s.rv));bc.stroke();
+    // residual points
+    for(let k=0;k<xs.length;k++){bc.fillStyle='#ff8a65';bc.beginPath();bc.arc(sx(xs[k]),sy(res[k]),4.5,0,7);bc.fill();}
+    // tree text
+    document.getElementById('tree').textContent =
+      `■ ${N}本目の木（回帰の切り株）\n`+
+      `気温 < ${s.th.toFixed(1)}°C ?\n`+
+      ` ├ Yes(寒い) → 補正 ${s.lv>=0?'+':''}${s.lv.toFixed(1)}\n`+
+      ` └ No (暑い) → 補正 ${s.rv>=0?'+':''}${s.rv.toFixed(1)}\n`+
+      `（実際に足す量 = 上記 × 学習率${lr}）`;
+  }
+
+  function draw(){
+    const N=+document.getElementById('n').value;
+    document.getElementById('nV').textContent=N;
+    drawTop(N); drawBot(N);
+    const note=document.getElementById('note');
+    if(N<=1) note.innerHTML='下段の<span class="hl">オレンジの点＝今のズレ</span>。木はこれを見て、ズレが正負に分かれる気温で<span style="color:#ce93d8;font-weight:bold;">区切り</span>、<span style="color:#80cbc4;font-weight:bold;">緑の階段（補正）</span>を出す。<span class="cold">寒い側は下げ</span>・<span class="hot">暑い側は上げ</span>。';
+    else note.innerHTML='本数を進めると、下段のオレンジ（ズレ）が<span class="hl">だんだん0付近に集まる</span>。木が毎回「残ったズレ」を狙って補正するから。緑の階段の高さ（補正量）も小さくなっていく。';
+  }
+  document.getElementById('n').addEventListener('input',draw);
+  draw();
+</script>
+</body>
+</html>

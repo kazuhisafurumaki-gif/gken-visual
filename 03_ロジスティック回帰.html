@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ロジスティック回帰 ビジュアル</title>
+<style>
+  *{box-sizing:border-box;}
+  body{font-family:-apple-system,"Hiragino Sans","Yu Gothic",sans-serif;background:#0f1226;color:#e8eaf6;margin:0;padding:24px;line-height:1.6;}
+  h1{font-size:22px;margin:0 0 4px;} .sub{color:#9fa8da;font-size:14px;margin-bottom:18px;}
+  .panel{background:#1a1f3d;border-radius:14px;padding:20px;margin-bottom:18px;box-shadow:0 4px 16px rgba(0,0,0,.3);}
+  .row{display:flex;gap:30px;flex-wrap:wrap;align-items:flex-start;}
+  canvas{background:#0a0d1f;border-radius:10px;}
+  .ctrls{display:flex;flex-direction:column;gap:16px;min-width:240px;}
+  .ctrl label{font-size:13px;color:#9fa8da;display:block;margin-bottom:4px;}
+  .ctrl .v{color:#fff;font-weight:bold;font-size:16px;}
+  input[type=range]{width:220px;}
+  button{background:#7c4dff;color:#fff;border:none;padding:11px 18px;border-radius:8px;font-size:14px;font-weight:bold;cursor:pointer;}
+  button:hover{background:#9575ff;}
+  .legend{font-size:12px;color:#9fa8da;margin-top:10px;}
+  .dot{display:inline-block;width:10px;height:10px;border-radius:50%;vertical-align:middle;margin-right:4px;}
+  .formula{font-size:16px;background:#11142b;padding:12px 14px;border-radius:8px;border-left:4px solid #7c4dff;}
+  .formula b{color:#ffd54f;}
+  .acc{font-size:14px;} .accbig{font-size:30px;font-weight:bold;color:#4caf50;}
+  .note{font-size:13px;color:#9fa8da;margin-top:8px;}
+  .hl{color:#ffd54f;font-weight:bold;} .hlg{color:#4caf50;font-weight:bold;} .hlr{color:#ff6e6e;font-weight:bold;}
+  .test{margin-top:6px;font-size:14px;}
+</style>
+</head>
+<body>
+  <h1>🐱🐶 ロジスティック回帰 — 「確率を出して0.5で線引き」</h1>
+  <div class="sub">例：勉強時間（時間）から 試験に合格するか を予測する</div>
+
+  <div class="panel">
+    <div class="row">
+      <div>
+        <canvas id="cv" width="480" height="380"></canvas>
+        <div class="legend">
+          <span class="dot" style="background:#4caf50"></span>合格した人（正解=1・上の段）
+          <span class="dot" style="background:#ff6e6e"></span>不合格だった人（正解=0・下の段）<br>
+          <span class="dot" style="background:#ffd54f"></span>S字カーブ（合格"確率"の予測）
+          <span style="color:#42a5f5">┊</span> 0.5の境界線（ここで合否を分ける）
+        </div>
+      </div>
+      <div class="ctrls">
+        <div class="ctrl">
+          <label>境界の位置（合格率50%になる勉強時間）</label>
+          <input id="x0" type="range" min="2" max="9" step="0.1" value="3">
+          <span class="v" id="x0V">3.0</span> 時間
+        </div>
+        <div class="ctrl">
+          <label>カーブの急さ（判断のキレ）</label>
+          <input id="k" type="range" min="0.4" max="4" step="0.1" value="1">
+          <span class="v" id="kV">1.0</span>
+        </div>
+        <div class="formula" id="formula"></div>
+        <div class="acc">正しく分類できた割合：<br><span class="accbig" id="acc">—</span></div>
+        <button id="best">✨ 最適なカーブにフィット</button>
+        <div class="test">
+          <label style="color:#9fa8da;font-size:13px;">🔮 試しに予測：勉強 <span class="hl" id="qxV">5.0</span> 時間 →</label>
+          <input id="qx" type="range" min="0" max="11" step="0.1" value="5" style="width:220px;">
+          <div id="pred" style="margin-top:4px;"></div>
+        </div>
+        <div class="note">点は上段（合格=1）か下段（不合格=0）にいる。<span class="hl">黄色いS字</span>は「その勉強時間での合格"確率"」。<span style="color:#42a5f5">確率0.5</span>を境に、右なら合格・左なら不合格と判定する。</div>
+      </div>
+    </div>
+  </div>
+
+<script>
+  const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+  const W=cv.width,H=cv.height,pad=46;
+  // データ（勉強時間, 合否1/0）
+  const data=[[1,0],[1.5,0],[2,0],[2.5,0],[3,0],[2.8,1],[3.5,1],[4,0],[4.5,1],[5,1],[5.5,1],[6,1],[7,1],[8,1]];
+  const xMin=0,xMax=11;
+  const sx=x=>pad+(x-xMin)/(xMax-xMin)*(W-pad-20);
+  const sy=p=>H-pad-p*(H-pad-30); // p:0..1
+  const sig=(x,x0,k)=>1/(1+Math.exp(-k*(x-x0)));
+
+  function draw(){
+    const x0=+document.getElementById('x0').value,k=+document.getElementById('k').value;
+    document.getElementById('x0V').textContent=x0.toFixed(1);
+    document.getElementById('kV').textContent=k.toFixed(1);
+    ctx.clearRect(0,0,W,H);
+    // grid: 0,0.5,1 lines
+    ctx.strokeStyle='#2a3158';ctx.lineWidth=1;ctx.fillStyle='#5c6bc0';ctx.font='11px sans-serif';
+    [0,0.5,1].forEach(p=>{ctx.beginPath();ctx.moveTo(pad,sy(p));ctx.lineTo(sx(xMax),sy(p));ctx.stroke();ctx.fillText('確率'+p,2,sy(p)+4);});
+    // 0.5 threshold boundary (vertical at x0)
+    ctx.strokeStyle='#42a5f5';ctx.lineWidth=2;ctx.setLineDash([5,4]);
+    ctx.beginPath();ctx.moveTo(sx(x0),sy(0));ctx.lineTo(sx(x0),sy(1));ctx.stroke();ctx.setLineDash([]);
+    ctx.fillStyle='#42a5f5';ctx.fillText('境界 '+x0.toFixed(1)+'h',sx(x0)-20,sy(1)-6);
+    // sigmoid curve
+    ctx.strokeStyle='#ffd54f';ctx.lineWidth=3;ctx.beginPath();
+    for(let i=0;i<=200;i++){const x=xMin+(xMax-xMin)*i/200;const p=sig(x,x0,k);const X=sx(x),Y=sy(p);i?ctx.lineTo(X,Y):ctx.moveTo(X,Y);}
+    ctx.stroke();
+    // points + accuracy
+    let correct=0;
+    for(const[x,y]of data){
+      const p=sig(x,x0,k); const predicted=p>=0.5?1:0;
+      if(predicted===y)correct++;
+      ctx.fillStyle=y===1?'#4caf50':'#ff6e6e';
+      ctx.beginPath();ctx.arc(sx(x),sy(y),6,0,7);ctx.fill();
+      // ring if misclassified
+      if(predicted!==y){ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.beginPath();ctx.arc(sx(x),sy(y),9,0,7);ctx.stroke();}
+    }
+    ctx.fillStyle='#5c6bc0';ctx.fillText('勉強時間→',sx(xMax)-50,H-14);
+    document.getElementById('formula').innerHTML=`合格確率 = シグモイド( <b>${k.toFixed(1)}</b> × (勉強時間 − <b>${x0.toFixed(1)}</b>) )`;
+    const acc=Math.round(correct/data.length*100);
+    document.getElementById('acc').textContent=acc+'%';
+    // test predictor
+    const qx=+document.getElementById('qx').value;
+    document.getElementById('qxV').textContent=qx.toFixed(1);
+    const pq=sig(qx,x0,k);
+    document.getElementById('pred').innerHTML=`合格確率 <b class="hl">${(pq*100).toFixed(0)}%</b> → 判定：`+
+      (pq>=0.5?'<b class="hlg">合格 ◯</b>':'<b class="hlr">不合格 ✕</b>');
+  }
+  // crude best fit (grid search)
+  function best(){
+    let bx=3,bk=1,bc=-1;
+    for(let x0=2;x0<=6;x0+=0.1)for(let k=0.4;k<=4;k+=0.1){
+      let c=0;for(const[x,y]of data){if((sig(x,x0,k)>=0.5?1:0)===y)c++;}
+      if(c>bc){bc=c;bx=x0;bk=k;}
+    }
+    let x00=+document.getElementById('x0').value,k0=+document.getElementById('k').value,t=0;
+    const iv=setInterval(()=>{t+=0.08;if(t>=1){t=1;clearInterval(iv);}
+      document.getElementById('x0').value=(x00+(bx-x00)*t).toFixed(1);
+      document.getElementById('k').value=(k0+(bk-k0)*t).toFixed(1);draw();},30);
+  }
+  ['x0','k','qx'].forEach(id=>document.getElementById(id).addEventListener('input',draw));
+  document.getElementById('best').addEventListener('click',best);
+  draw();
+</script>
+</body>
+</html>

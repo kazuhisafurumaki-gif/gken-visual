@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ROC曲線 ビジュアル</title>
+<style>
+  *{box-sizing:border-box;}
+  body{font-family:-apple-system,"Hiragino Sans","Yu Gothic",sans-serif;background:#0f1226;color:#e8eaf6;margin:0;padding:24px;line-height:1.6;}
+  h1{font-size:22px;margin:0 0 4px;} .sub{color:#9fa8da;font-size:14px;margin-bottom:18px;}
+  .panel{background:#1a1f3d;border-radius:14px;padding:20px;margin-bottom:18px;box-shadow:0 4px 16px rgba(0,0,0,.3);}
+  .row{display:flex;gap:26px;flex-wrap:wrap;align-items:flex-start;}
+  canvas{background:#0a0d1f;border-radius:10px;}
+  .side{min-width:280px;display:flex;flex-direction:column;gap:12px;}
+  .ctrl label{font-size:13px;color:#9fa8da;display:block;margin-bottom:4px;}
+  input[type=range]{width:290px;} .v{color:#fff;font-weight:bold;font-size:18px;}
+  .legend{font-size:12px;color:#9fa8da;margin-top:8px;}
+  .dot{display:inline-block;width:11px;height:11px;border-radius:50%;vertical-align:middle;margin-right:4px;}
+  .m{background:#11142b;padding:10px;border-radius:8px;font-size:13px;}
+  .mv{font-size:20px;font-weight:bold;color:#ffd54f;}
+  .aucbig{font-size:30px;font-weight:bold;color:#4caf50;}
+  .note{font-size:13px;color:#9fa8da;} .hl{color:#ffd54f;font-weight:bold;}
+  .metrics{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+</style>
+</head>
+<body>
+  <h1>📈 ROC曲線 と AUC</h1>
+  <div class="sub">しきい値を動かすと、ROC曲線上を点が動く。曲線の下の面積＝AUC（1に近いほど良いモデル）</div>
+
+  <div class="panel">
+    <div class="row">
+      <div>
+        <canvas id="strip" width="380" height="150"></canvas>
+        <div class="legend"><span class="dot" style="background:#ff6e6e"></span>本当はスパム　<span class="dot" style="background:#42a5f5"></span>本当は正常　<span style="color:#ce93d8">紫=しきい値</span></div>
+        <canvas id="roc" width="300" height="300" style="margin-top:14px;"></canvas>
+      </div>
+      <div class="side">
+        <div class="ctrl">
+          <label>しきい値</label>
+          <input id="th" type="range" min="0" max="1" step="0.01" value="0.5"><span class="v" id="thV">0.50</span>
+        </div>
+        <div class="metrics">
+          <div class="m">真陽性率(TPR)=再現率<br><span class="mv" id="tpr">—</span><br><span style="font-size:11px;color:#9fa8da">TP/(TP+FN)・縦軸</span></div>
+          <div class="m">偽陽性率(FPR)<br><span class="mv" id="fpr">—</span><br><span style="font-size:11px;color:#9fa8da">FP/(FP+TN)・横軸</span></div>
+        </div>
+        <div class="m">AUC（曲線の下の面積）<br><span class="aucbig" id="auc">—</span><br><span style="font-size:11px;color:#9fa8da">1に近いほど良い／0.5=でたらめ</span></div>
+        <div class="note" id="note"></div>
+      </div>
+    </div>
+  </div>
+
+<script>
+  const sc=document.getElementById('strip'),sx2=sc.getContext('2d');
+  const rc=document.getElementById('roc'),rx=rc.getContext('2d');
+  const mails=[
+    [0.95,1],[0.88,1],[0.82,1],[0.78,1],[0.72,1],[0.66,1],[0.61,1],[0.55,1],[0.48,1],[0.40,1],
+    [0.05,0],[0.12,0],[0.18,0],[0.24,0],[0.30,0],[0.36,0],[0.44,0],[0.52,0],[0.58,0],[0.68,0]
+  ];
+  const P=mails.filter(m=>m[1]===1).length, N=mails.filter(m=>m[1]===0).length;
+  function rates(t){let tp=0,fp=0;for(const[s,l]of mails){if(s>=t){if(l===1)tp++;else fp++;}}return {tpr:tp/P,fpr:fp/N};}
+  // ROC points: sweep threshold high→low
+  const roc=[]; for(let t=1.01;t>=-0.01;t-=0.01){const r=rates(t);roc.push([r.fpr,r.tpr]);}
+  // AUC via trapezoid (sort by fpr)
+  const sorted=roc.slice().sort((a,b)=>a[0]-b[0]);
+  let auc=0; for(let i=1;i<sorted.length;i++){auc+=(sorted[i][0]-sorted[i-1][0])*(sorted[i][1]+sorted[i-1][1])/2;}
+
+  function drawStrip(t){
+    const W=380,H=150,pad=28; const px=s=>pad+s*(W-2*pad);
+    sx2.clearRect(0,0,W,H);
+    sx2.strokeStyle='#2a3158';sx2.beginPath();sx2.moveTo(pad,H-30);sx2.lineTo(W-pad,H-30);sx2.stroke();
+    sx2.fillStyle='#5c6bc0';sx2.font='11px sans-serif';sx2.fillText('スコア0',pad-6,H-14);sx2.fillText('1',W-pad,H-14);
+    sx2.strokeStyle='#ce93d8';sx2.lineWidth=2;sx2.setLineDash([5,4]);sx2.beginPath();sx2.moveTo(px(t),12);sx2.lineTo(px(t),H-30);sx2.stroke();sx2.setLineDash([]);
+    const bins={};
+    for(const[s,l]of mails){const bx=Math.round(px(s));bins[bx]=bins[bx]||0;const yy=H-42-bins[bx]*15;bins[bx]++;
+      const judged=s>=t?1:0;
+      sx2.fillStyle=l===1?'#ff6e6e':'#42a5f5';sx2.beginPath();sx2.arc(px(s),yy,5.5,0,7);sx2.fill();
+      if(l!==judged){sx2.strokeStyle='#fff';sx2.lineWidth=1.8;sx2.beginPath();sx2.arc(px(s),yy,8,0,7);sx2.stroke();}}
+  }
+  function drawRoc(t){
+    const W=300,H=300,pad=40; const gx=f=>pad+f*(W-pad-15), gy=v=>H-pad-v*(H-pad-15);
+    rx.clearRect(0,0,W,H);
+    // axes
+    rx.strokeStyle='#2a3158';rx.beginPath();rx.moveTo(pad,gy(0));rx.lineTo(gx(1),gy(0));rx.moveTo(pad,gy(0));rx.lineTo(pad,gy(1));rx.stroke();
+    rx.fillStyle='#5c6bc0';rx.font='11px sans-serif';rx.fillText('偽陽性率(FPR)→',gx(0.35),gy(0)+24);
+    rx.save();rx.translate(14,gy(0.3));rx.rotate(-Math.PI/2);rx.fillText('真陽性率(TPR)→',0,0);rx.restore();
+    // diagonal (でたらめ)
+    rx.strokeStyle='#5c6bc0';rx.setLineDash([4,4]);rx.lineWidth=1;rx.beginPath();rx.moveTo(gx(0),gy(0));rx.lineTo(gx(1),gy(1));rx.stroke();rx.setLineDash([]);
+    rx.fillStyle='#5c6bc0';rx.fillText('でたらめ(AUC0.5)',gx(0.45),gy(0.42));
+    // fill area under curve
+    rx.fillStyle='rgba(76,175,80,.13)';rx.beginPath();rx.moveTo(gx(0),gy(0));
+    for(const[f,tp]of sorted)rx.lineTo(gx(f),gy(tp));rx.lineTo(gx(1),gy(0));rx.closePath();rx.fill();
+    // curve
+    rx.strokeStyle='#4caf50';rx.lineWidth=2.5;rx.beginPath();
+    sorted.forEach(([f,tp],i)=>{i?rx.lineTo(gx(f),gy(tp)):rx.moveTo(gx(f),gy(tp));});rx.stroke();
+    // current point
+    const r=rates(t);
+    rx.fillStyle='#ffd54f';rx.strokeStyle='#ce93d8';rx.lineWidth=2;
+    rx.beginPath();rx.arc(gx(r.fpr),gy(r.tpr),7,0,7);rx.fill();rx.stroke();
+  }
+  function draw(){
+    const t=+document.getElementById('th').value;
+    document.getElementById('thV').textContent=t.toFixed(2);
+    drawStrip(t);drawRoc(t);
+    const r=rates(t);
+    document.getElementById('tpr').textContent=(r.tpr*100).toFixed(0)+'%';
+    document.getElementById('fpr').textContent=(r.fpr*100).toFixed(0)+'%';
+    document.getElementById('auc').textContent=auc.toFixed(2);
+    document.getElementById('note').innerHTML='しきい値を動かすと<span class="hl">黄色い点が曲線上を移動</span>。低くすると右上(なんでも陽性)、高くすると左下(慎重)へ。曲線が<span class="hl">左上に張り出すほど良いモデル</span>＝AUCが大きい。';
+  }
+  document.getElementById('th').addEventListener('input',draw);
+  draw();
+</script>
+</body>
+</html>

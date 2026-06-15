@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>畳み込み出力サイズ ビジュアル</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "Hiragino Sans", "Yu Gothic", sans-serif;
+    background: #0f1226; color: #e8eaf6; margin: 0; padding: 24px;
+    line-height: 1.6;
+  }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .sub { color: #9fa8da; font-size: 14px; margin-bottom: 20px; }
+  .panel { background: #1a1f3d; border-radius: 14px; padding: 20px; margin-bottom: 20px; box-shadow: 0 4px 16px rgba(0,0,0,.3); }
+  .formula { font-size: 18px; background: #11142b; padding: 16px; border-radius: 10px; border-left: 4px solid #7c4dff; overflow-x:auto; }
+  .formula b { color: #ffd54f; }
+  .controls { display: flex; gap: 18px; flex-wrap: wrap; align-items: center; margin-bottom: 8px; }
+  .ctrl { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: #9fa8da; }
+  .ctrl input[type=range] { width: 140px; }
+  .ctrl .val { font-size: 18px; color: #fff; font-weight: bold; }
+  .stage { display: flex; gap: 40px; flex-wrap: wrap; align-items: flex-start; }
+  .gridwrap { text-align: center; }
+  .gridwrap .label { font-size: 13px; color: #9fa8da; margin-bottom: 8px; }
+  .grid { display: inline-grid; gap: 3px; background:#070918; padding: 8px; border-radius: 8px; }
+  .cell {
+    width: 26px; height: 26px; border-radius: 4px; background: #2a3158;
+    transition: all .15s; display:flex; align-items:center; justify-content:center;
+    font-size: 10px; color:#5c6bc0;
+  }
+  .cell.win { background: rgba(124,77,255,.30); outline: 1px solid rgba(124,77,255,.5); }
+  .cell.anchor { background: #7c4dff; box-shadow: 0 0 12px #7c4dff; }
+  .ocell { width: 30px; height: 30px; border-radius:5px; background:#263238; }
+  .ocell.done { background:#26a69a; box-shadow:0 0 10px rgba(38,166,154,.6); }
+  .ocell.cur { background:#ffd54f; box-shadow:0 0 12px #ffd54f; }
+  .big { font-size: 28px; font-weight: bold; color: #ffd54f; }
+  .pos { font-size: 13px; color:#9fa8da; margin-top:10px; min-height: 20px;}
+  button {
+    background:#7c4dff; color:#fff; border:none; padding:10px 18px; border-radius:8px;
+    font-size:14px; cursor:pointer; font-weight:bold;
+  }
+  button:hover { background:#9575ff; }
+  .note { font-size:13px; color:#9fa8da; margin-top:6px;}
+  .hl { color:#26a69a; font-weight:bold; }
+  .hl2 { color:#ffd54f; font-weight:bold; }
+</style>
+</head>
+<body>
+  <h1>🎞️ 畳み込みの出力サイズ — 「なぜ 3×3 になる?」</h1>
+  <div class="sub">フィルタが入力の上をスライドして、止まれる位置の数 = 出力サイズ</div>
+
+  <div class="panel">
+    <div class="controls">
+      <div class="ctrl"><span>入力サイズ</span><input id="inp" type="range" min="3" max="11" value="7"><span class="val" id="inpV">7</span></div>
+      <div class="ctrl"><span>フィルタ</span><input id="fil" type="range" min="1" max="5" value="3"><span class="val" id="filV">3</span></div>
+      <div class="ctrl"><span>ストライド</span><input id="str" type="range" min="1" max="4" value="2"><span class="val" id="strV">2</span></div>
+      <div class="ctrl"><span>パディング</span><input id="pad" type="range" min="0" max="3" value="0"><span class="val" id="padV">0</span></div>
+      <button id="play">▶ スライド再生</button>
+    </div>
+    <div class="formula" id="formula"></div>
+  </div>
+
+  <div class="panel">
+    <div class="stage">
+      <div class="gridwrap">
+        <div class="label">入力（パディング込み）＋ フィルタ位置</div>
+        <div id="grid" class="grid"></div>
+        <div class="pos" id="posTxt"></div>
+      </div>
+      <div class="gridwrap">
+        <div class="label">出力（フィルタが止まった位置の数だけ）</div>
+        <div id="ogrid" class="grid"></div>
+        <div class="pos">出力サイズ = <span class="big" id="outBig">3×3</span></div>
+      </div>
+    </div>
+    <div class="note">💡 紫の濃いマス＝フィルタの左上アンカー。フィルタ全体（薄紫）が<b>はみ出さずに収まる</b>位置だけに止まれる。<br>
+    その止まれる位置の数が、そのまま出力のマス数になる。<span class="hl2">ストライドを大きくすると一度に大きく飛ぶ</span>ので、止まれる位置が減る＝出力が小さくなる。</div>
+  </div>
+
+<script>
+  const $ = id => document.getElementById(id);
+  let timer = null;
+
+  function calc() {
+    const I = +$('inp').value, F = +$('fil').value, S = +$('str').value, P = +$('pad').value;
+    $('inpV').textContent=I; $('filV').textContent=F; $('strV').textContent=S; $('padV').textContent=P;
+    const padded = I + 2*P;
+    const out = Math.floor((padded - F)/S) + 1;
+    return {I,F,S,P,padded,out: out<1?0:out};
+  }
+
+  function render(step) {
+    const {I,F,S,P,padded,out} = calc();
+    // formula
+    $('formula').innerHTML =
+      `出力 = (入力 + 2×パディング − フィルタ) ÷ ストライド + 1<br>` +
+      `　　= (<b>${I}</b> + 2×<b>${P}</b> − <b>${F}</b>) ÷ <b>${S}</b> + 1` +
+      ` = (${padded} − ${F}) ÷ ${S} + 1` +
+      ` = ${padded-F} ÷ ${S} + 1` +
+      ` = <b>${out}</b>`;
+    $('outBig').textContent = `${out}×${out}`;
+
+    // input grid (padded)
+    const g = $('grid');
+    g.style.gridTemplateColumns = `repeat(${padded}, 26px)`;
+    g.innerHTML='';
+    // total positions
+    const positions = [];
+    for(let r=0;r<out;r++) for(let c=0;c<out;c++) positions.push([r*S, c*S]);
+    const cur = positions[step % positions.length] || [0,0];
+    const cells=[];
+    for(let r=0;r<padded;r++){
+      for(let c=0;c<padded;c++){
+        const d=document.createElement('div');
+        d.className='cell';
+        const isPad = (r<P||c<P||r>=padded-P||c>=padded-P);
+        if(isPad) d.style.opacity=.35;
+        // window of current filter
+        if(r>=cur[0] && r<cur[0]+F && c>=cur[1] && c<cur[1]+F) d.classList.add('win');
+        if(r===cur[0] && c===cur[1]) d.classList.add('anchor');
+        g.appendChild(d);
+        cells.push(d);
+      }
+    }
+    $('posTxt').innerHTML = `フィルタ位置：<span class="hl">${(step%positions.length)+1}</span> / 全 <span class="hl">${positions.length}</span> 箇所（左上から行 ${cur[0]}・列 ${cur[1]}）`;
+
+    // output grid
+    const og=$('ogrid');
+    og.style.gridTemplateColumns=`repeat(${out}, 30px)`;
+    og.innerHTML='';
+    const curIdx = step % positions.length;
+    for(let i=0;i<out*out;i++){
+      const d=document.createElement('div'); d.className='ocell';
+      if(i<curIdx) d.classList.add('done');
+      if(i===curIdx) d.classList.add('cur');
+      og.appendChild(d);
+    }
+  }
+
+  let step=0;
+  function play(){
+    const {out}=calc(); const total=out*out;
+    clearInterval(timer); step=0; render(step);
+    timer=setInterval(()=>{ step++; render(step); if(step>=total-1){clearInterval(timer);} }, 450);
+  }
+
+  ['inp','fil','str','pad'].forEach(id=>$(id).addEventListener('input',()=>{step=0;render(0);}));
+  $('play').addEventListener('click',play);
+  render(0);
+</script>
+</body>
+</html>

@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>G検定 ビジュアル教材</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#7c4dff">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="G検定ビジュアル">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<style>
+  body{font-family:-apple-system,"Hiragino Sans","Yu Gothic",sans-serif;background:#0f1226;color:#e8eaf6;margin:0;padding:40px;line-height:1.7;}
+  h1{font-size:24px;} .sub{color:#9fa8da;margin-bottom:24px;}
+  a.card{display:block;background:#1a1f3d;border-radius:12px;padding:18px 22px;margin-bottom:14px;text-decoration:none;color:#e8eaf6;box-shadow:0 4px 16px rgba(0,0,0,.3);transition:.15s;border-left:4px solid #7c4dff;}
+  a.card:hover{background:#222a52;transform:translateX(4px);}
+  a.card .t{font-size:18px;font-weight:bold;}
+  a.card .d{font-size:13px;color:#9fa8da;margin-top:4px;}
+  a.note{border-left-color:#26a69a;background:#16302c;}
+  a.note:hover{background:#1d3f39;}
+  .foot{color:#5c6bc0;font-size:12px;margin-top:30px;}
+  @media (max-width:600px){body{padding:20px 16px;}}
+</style>
+</head>
+<body>
+  <h1>🎓 G検定 ビジュアル教材</h1>
+  <div class="sub">手で動かして理解する用の図。タップで開く。</div>
+
+  <a class="card note" href="学習ノート.html">
+    <div class="t">📔 学習ノート（まとめ・覚えるリスト・弱点リスト）</div>
+    <div class="d">CNN/RNN/Transformer/教師あり学習/評価指標などのまとめと、覚えるリスト・弱点リスト。試験前の見返し用。</div>
+  </a>
+
+  <a class="card" href="01_畳み込み出力サイズ.html">
+    <div class="t">📐 01. 畳み込みの出力サイズ</div>
+    <div class="d">フィルタがスライドする様子で「なぜ出力サイズがこうなるか」を体感。入力・フィルタ・ストライド・パディングを変えられる。</div>
+  </a>
+
+  <a class="card" href="02_線形回帰.html">
+    <div class="t">📈 02. 線形回帰</div>
+    <div class="d">直線を動かして誤差（赤線）の変化を体感。最小二乗法で最適な直線に一発フィット。</div>
+  </a>
+
+  <a class="card" href="03_ロジスティック回帰.html">
+    <div class="t">🐱🐶 03. ロジスティック回帰</div>
+    <div class="d">S字カーブ（シグモイド）で合格"確率"を出し、0.5で合否を線引き。境界とカーブの急さを動かせる。試し予測つき。</div>
+  </a>
+
+  <a class="card" href="04_直線で分類する失敗例.html">
+    <div class="t">📏💥 04. 直線で分類する失敗例</div>
+    <div class="d">合否データに直線（線形回帰）を当てはめると確率が100%超やマイナスに突き抜ける／外れ値で境界が崩れる様子。ロジスティック回帰の必要性が分かる。</div>
+  </a>
+
+  <a class="card" href="05_SVMマージン最大化.html">
+    <div class="t">📏 05. SVM（マージン最大化）</div>
+    <div class="d">2クラスを分ける境界線を動かし、マージン（間隔）が最大になる線を探す。サポートベクターが光る。「余裕をもって分ける」を体感。</div>
+  </a>
+
+  <a class="card" href="06_決定木.html">
+    <div class="t">🌳 06. 決定木</div>
+    <div class="d">年齢・年収から購入を予測。木の深さを変えると、空間が区切られていく様子＆深すぎると過学習する様子が見える。右に木の構造も表示。</div>
+  </a>
+
+  <a class="card" href="07_ランダムフォレスト.html">
+    <div class="t">🌲🌲🌲 07. ランダムフォレスト</div>
+    <div class="d">少しずつ違う決定木をたくさん作って多数決（バギング）。木の本数を増やすと境界がなめらか・安定し、過学習に強くなる様子が見える。</div>
+  </a>
+
+  <a class="card" href="08_勾配ブースティング.html">
+    <div class="t">🏆 08. 勾配ブースティング</div>
+    <div class="d">気温→アイス売上を予測。木を1本ずつ足すと、前のズレ（残差）を埋めて予測がデータに吸い付く＝逐次・誤りを補正。ランダムフォレスト(並列)との対比。</div>
+  </a>
+
+  <a class="card" href="09_kNN.html">
+    <div class="t">🎯 09. k-NN（k近傍法）</div>
+    <div class="d">マウスを動かすと、その地点のご近所k個と多数決の結果が見える。kを変えると境界がカクカク↔なめらかに変わる（kの大小と過学習）。</div>
+  </a>
+
+  <a class="card" href="10_評価指標.html">
+    <div class="t">📊 10. 評価指標（混同行列・適合率・再現率・F値）</div>
+    <div class="d">スパム判定のしきい値を動かすと、混同行列(TP/FP/FN/TN)と各指標が変化。適合率と再現率のトレードオフが体感できる。</div>
+  </a>
+
+  <a class="card" href="11_ROC曲線とAUC.html">
+    <div class="t">📈 11. ROC曲線とAUC</div>
+    <div class="d">しきい値を動かすとROC曲線上を点が移動。曲線が左上に張り出すほど良いモデル＝AUC大。スパム判定の例とリンク。</div>
+  </a>
+
+  <a class="card" href="12_AUCの大きさ.html">
+    <div class="t">📈 12. AUCの大きさ（1に近いとは?）</div>
+    <div class="d">モデルの良さ（分離度）を動かすと、ROC曲線が左上の角に張り付き緑の面積が四角を埋める＝AUC→1。逆に混ざると対角線＝0.5。</div>
+  </a>
+
+  <div class="foot">MIXION GAMES / G検定対策 ・ 追加したら随時このページにカードを足していく</div>
+  <script>
+    if('serviceWorker' in navigator){
+      window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>決定木 ビジュアル</title>
+<style>
+  *{box-sizing:border-box;}
+  body{font-family:-apple-system,"Hiragino Sans","Yu Gothic",sans-serif;background:#0f1226;color:#e8eaf6;margin:0;padding:24px;line-height:1.6;}
+  h1{font-size:22px;margin:0 0 4px;} .sub{color:#9fa8da;font-size:14px;margin-bottom:18px;}
+  .panel{background:#1a1f3d;border-radius:14px;padding:20px;margin-bottom:18px;box-shadow:0 4px 16px rgba(0,0,0,.3);}
+  .row{display:flex;gap:30px;flex-wrap:wrap;align-items:flex-start;}
+  canvas{background:#0a0d1f;border-radius:10px;}
+  .side{min-width:300px;display:flex;flex-direction:column;gap:14px;}
+  .ctrl label{font-size:13px;color:#9fa8da;display:block;margin-bottom:4px;}
+  input[type=range]{width:240px;} .v{color:#fff;font-weight:bold;font-size:18px;}
+  .legend{font-size:12px;color:#9fa8da;margin-top:10px;}
+  .dot{display:inline-block;width:11px;height:11px;border-radius:50%;vertical-align:middle;margin-right:4px;}
+  .tree{font-family:ui-monospace,monospace;font-size:13px;background:#11142b;padding:14px;border-radius:8px;white-space:pre;overflow-x:auto;line-height:1.5;}
+  .acc{font-size:14px;} .accv{font-size:22px;font-weight:bold;color:#4caf50;}
+  .note{font-size:13px;color:#9fa8da;} .hl{color:#ffd54f;font-weight:bold;} .warn{color:#ff8a65;font-weight:bold;}
+  .buy{color:#42a5f5;} .no{color:#ff6e6e;}
+</style>
+</head>
+<body>
+  <h1>🌳 決定木 — 質問の枝分かれで分類する</h1>
+  <div class="sub">例：年齢・年収 から「商品を購入するか」を予測</div>
+
+  <div class="panel">
+    <div class="row">
+      <div>
+        <canvas id="cv" width="380" height="380"></canvas>
+        <div class="legend">
+          <span class="dot" style="background:#42a5f5"></span>購入した(○)
+          <span class="dot" style="background:#ff6e6e"></span>購入しない(×)<br>
+          背景の色：その領域で決定木が出す予測（<span class="buy">青=購入</span>／<span class="no">赤=しない</span>）<br>
+          <b>分割線</b>：<span style="color:#ffd54f;font-weight:bold;">太い線＝最初(全体)の分割</span>／細い線＝その箱の中だけの分割（色＝深さ）
+        </div>
+      </div>
+      <div class="side">
+        <div class="ctrl">
+          <label>木の深さ（質問を何回まで重ねるか）</label>
+          <input id="depth" type="range" min="0" max="6" step="1" value="1"><span class="v" id="depthV">1</span>
+        </div>
+        <div class="acc">訓練データの正答率：<span class="accv" id="acc">—</span></div>
+        <div class="tree" id="tree"></div>
+        <div class="note" id="note"></div>
+      </div>
+    </div>
+  </div>
+
+<script>
+  const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+  const W=cv.width,H=cv.height,pad=40;
+  // x:年齢20-65, y:年収(万)200-950, label 1=購入/0=しない
+  // ルール: (年齢<40 & 年収>450) or (年齢>=40 & 年収>650) → 購入。+ノイズ1個
+  const pts=[
+    [25,600,1],[30,700,1],[28,520,1],[35,820,1],[33,560,1],[38,900,1],[27,480,1],
+    [45,820,1],[50,900,1],[55,760,1],[48,700,1],[60,860,1],[52,720,1],
+    [25,300,0],[30,400,0],[35,350,0],[22,440,0],[38,300,0],[32,420,0],
+    [45,400,0],[50,520,0],[55,300,0],[60,600,0],[48,560,0],[58,640,0],
+    [29,840,0] // ノイズ（若くて高収入だが買わなかった例外）
+  ];
+  const xMin=20,xMax=65,yMin=250,yMax=950;
+  const sx=x=>pad+(x-xMin)/(xMax-xMin)*(W-pad-15);
+  const sy=y=>H-pad-(y-yMin)/(yMax-yMin)*(H-pad-15);
+
+  function gini(rows){if(!rows.length)return 0;let c1=0;for(const r of rows)c1+=r[2];const p=c1/rows.length;return 1-p*p-(1-p)*(1-p);}
+  function majority(rows){let c1=0;for(const r of rows)c1+=r[2];return c1*2>=rows.length?1:0;}
+
+  function bestSplit(rows){
+    let best=null,bestG=gini(rows);
+    for(let f=0;f<2;f++){
+      const vals=[...new Set(rows.map(r=>r[f]))].sort((a,b)=>a-b);
+      for(let i=0;i<vals.length-1;i++){
+        const th=(vals[i]+vals[i+1])/2;
+        const L=rows.filter(r=>r[f]<th),R=rows.filter(r=>r[f]>=th);
+        if(!L.length||!R.length)continue;
+        const g=(L.length*gini(L)+R.length*gini(R))/rows.length;
+        if(g<bestG-1e-9){bestG=g;best={f,th,L,R};}
+      }
+    }
+    return best;
+  }
+  function build(rows,depth,maxD){
+    if(depth>=maxD||gini(rows)<1e-9||rows.length<2)return {leaf:true,cls:majority(rows),n:rows.length};
+    const s=bestSplit(rows);
+    if(!s)return {leaf:true,cls:majority(rows),n:rows.length};
+    return {leaf:false,f:s.f,th:s.th,L:build(s.L,depth+1,maxD),R:build(s.R,depth+1,maxD),n:rows.length};
+  }
+  function predict(node,x,y){const v=[x,y];while(!node.leaf){node=v[node.f]<node.th?node.L:node.R;}return node.cls;}
+
+  // 各分割線を「その枝が担当する箱の中だけ」に描く（入れ子が見える）
+  const splitColors=['#ffd54f','#ff8a65','#4dd0e1','#ba68c8','#aed581','#f06292','#90a4ae'];
+  function drawSplits(node,x0,x1,y0,y1,depth){
+    if(node.leaf)return;
+    ctx.strokeStyle=splitColors[depth%splitColors.length];
+    ctx.lineWidth=Math.max(1.2,3.8-depth*0.5);
+    ctx.setLineDash(depth===0?[]:[]);
+    ctx.beginPath();
+    if(node.f===0){ // 年齢で縦に分割（その箱の年収範囲だけ）
+      ctx.moveTo(sx(node.th),sy(y0));ctx.lineTo(sx(node.th),sy(y1));ctx.stroke();
+      drawSplits(node.L,x0,node.th,y0,y1,depth+1);
+      drawSplits(node.R,node.th,x1,y0,y1,depth+1);
+    }else{ // 年収で横に分割（その箱の年齢範囲だけ）
+      ctx.moveTo(sx(x0),sy(node.th));ctx.lineTo(sx(x1),sy(node.th));ctx.stroke();
+      drawSplits(node.L,x0,x1,y0,node.th,depth+1);
+      drawSplits(node.R,x0,x1,node.th,y1,depth+1);
+    }
+  }
+
+  function treeText(node,prefix,isRoot){
+    if(node.leaf)return (isRoot?'':'')+(node.cls?'→ 購入○':'→ しない×')+' ('+node.n+'件)\n';
+    const fname=node.f===0?'年齢':'年収';
+    const cond=fname+' < '+node.th.toFixed(0)+(node.f===0?'歳':'万');
+    let s=cond+' ?\n';
+    s+=prefix+' ├ Yes: '+treeText(node.L,prefix+' │   ',false);
+    s+=prefix+' └ No : '+treeText(node.R,prefix+'     ',false);
+    return s;
+  }
+
+  function draw(){
+    const maxD=+document.getElementById('depth').value;
+    document.getElementById('depthV').textContent=maxD;
+    const tree=build(pts,0,maxD);
+    ctx.clearRect(0,0,W,H);
+    // region coloring (grid)
+    const step=6;
+    for(let px=pad;px<W-15;px+=step){
+      for(let py=15;py<H-pad;py+=step){
+        const x=xMin+(px-pad)/(W-pad-15)*(xMax-xMin);
+        const y=yMin+(H-pad-py)/(H-pad-15)*(yMax-yMin);
+        const c=predict(tree,x,y);
+        ctx.fillStyle=c?'rgba(66,165,245,.18)':'rgba(255,110,110,.15)';
+        ctx.fillRect(px,py,step,step);
+      }
+    }
+    // axes labels
+    ctx.fillStyle='#5c6bc0';ctx.font='11px sans-serif';
+    ctx.fillText('年齢→',W-55,H-22);
+    ctx.save();ctx.translate(12,30);ctx.rotate(-Math.PI/2);ctx.fillText('年収→',0,0);ctx.restore();
+    // 分割線（入れ子）
+    drawSplits(tree,xMin,xMax,yMin,yMax,0);
+    // points + accuracy
+    let cor=0;
+    for(const[x,y,lab]of pts){
+      if(predict(tree,x,y)===lab)cor++;
+      ctx.fillStyle=lab?'#42a5f5':'#ff6e6e';
+      ctx.beginPath();ctx.arc(sx(x),sy(y),6,0,7);ctx.fill();
+      ctx.strokeStyle='#0a0d1f';ctx.lineWidth=1.5;ctx.stroke();
+    }
+    document.getElementById('acc').textContent=Math.round(cor/pts.length*100)+'%';
+    document.getElementById('tree').textContent = maxD===0 ? '（質問なし：全部まとめて多数決）\n'+treeText(tree,'',true) : treeText(tree,'',true);
+    const note=document.getElementById('note');
+    if(maxD<=2) note.innerHTML='浅い木：大きく区切るだけ。<span class="hl">単純で解釈しやすい</span>が、まだ取りこぼしがある。';
+    else if(maxD<=4) note.innerHTML='ほどよい深さ：境界がデータに合ってきた。<span class="hl">バランス良好</span>。';
+    else note.innerHTML='深すぎ：<span class="warn">ノイズ1点のために小さな領域を作って過剰適合（過学習）</span>。訓練正答率は上がるが新データに弱くなる。';
+  }
+  document.getElementById('depth').addEventListener('input',draw);
+  draw();
+</script>
+</body>
+</html>

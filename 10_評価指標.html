@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>評価指標 ビジュアル</title>
+<style>
+  *{box-sizing:border-box;}
+  body{font-family:-apple-system,"Hiragino Sans","Yu Gothic",sans-serif;background:#0f1226;color:#e8eaf6;margin:0;padding:24px;line-height:1.6;}
+  h1{font-size:22px;margin:0 0 4px;} .sub{color:#9fa8da;font-size:14px;margin-bottom:18px;}
+  .panel{background:#1a1f3d;border-radius:14px;padding:20px;margin-bottom:18px;box-shadow:0 4px 16px rgba(0,0,0,.3);}
+  .row{display:flex;gap:30px;flex-wrap:wrap;align-items:flex-start;}
+  canvas{background:#0a0d1f;border-radius:10px;}
+  .side{min-width:330px;display:flex;flex-direction:column;gap:12px;}
+  .ctrl label{font-size:13px;color:#9fa8da;display:block;margin-bottom:4px;}
+  input[type=range]{width:300px;} .v{color:#fff;font-weight:bold;font-size:18px;}
+  .legend{font-size:12px;color:#9fa8da;margin-top:10px;}
+  .dot{display:inline-block;width:11px;height:11px;border-radius:50%;vertical-align:middle;margin-right:4px;}
+  table{border-collapse:collapse;} td,th{border:1px solid #2a3158;padding:8px 10px;text-align:center;font-size:13px;}
+  .cm td{font-size:13px;width:130px;}
+  .tp{background:rgba(76,175,80,.25);} .tn{background:rgba(76,175,80,.18);}
+  .fp{background:rgba(255,138,101,.25);} .fn{background:rgba(255,110,110,.25);}
+  .metrics{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+  .m{background:#11142b;padding:10px;border-radius:8px;font-size:13px;}
+  .m .mv{font-size:22px;font-weight:bold;color:#ffd54f;}
+  .note{font-size:13px;color:#9fa8da;} .hl{color:#ffd54f;font-weight:bold;}
+</style>
+</head>
+<body>
+  <h1>📊 評価指標 — 混同行列・適合率・再現率・F値</h1>
+  <div class="sub">例：メールのスパム判定。「スパムらしさスコア」がしきい値以上ならスパムと判定</div>
+
+  <div class="panel">
+    <div class="row">
+      <div>
+        <canvas id="cv" width="420" height="220"></canvas>
+        <div class="legend">
+          <span class="dot" style="background:#ff6e6e"></span>本当はスパム
+          <span class="dot" style="background:#42a5f5"></span>本当は正常メール<br>
+          横位置＝モデルの「スパムらしさスコア」。<span style="color:#ce93d8">紫線＝しきい値</span>（右側=スパムと判定）
+        </div>
+        <div style="margin-top:14px;">
+          <table class="cm">
+            <tr><th></th><th>判定:スパム</th><th>判定:正常</th></tr>
+            <tr><th>実際:スパム</th><td class="tp">TP(真陽性)<br><b id="tp">0</b></td><td class="fn">FN(偽陰性)<br><b id="fn">0</b><br><span style="font-size:11px;color:#ff6e6e">見逃し</span></td></tr>
+            <tr><th>実際:正常</th><td class="fp">FP(偽陽性)<br><b id="fp">0</b><br><span style="font-size:11px;color:#ff8a65">巻き込み</span></td><td class="tn">TN(真陰性)<br><b id="tn">0</b></td></tr>
+          </table>
+        </div>
+      </div>
+      <div class="side">
+        <div class="ctrl">
+          <label>しきい値（これ以上のスコアをスパムと判定）</label>
+          <input id="th" type="range" min="0" max="1" step="0.01" value="0.5"><span class="v" id="thV">0.50</span>
+        </div>
+        <div class="metrics">
+          <div class="m">正解率(Accuracy)<br><span class="mv" id="acc">—</span><br><span style="font-size:11px;color:#9fa8da">(TP+TN)/全部</span></div>
+          <div class="m">適合率(Precision)<br><span class="mv" id="prec">—</span><br><span style="font-size:11px;color:#9fa8da">TP/(TP+FP)</span></div>
+          <div class="m">再現率(Recall)<br><span class="mv" id="rec">—</span><br><span style="font-size:11px;color:#9fa8da">TP/(TP+FN)</span></div>
+          <div class="m">F値(F1)<br><span class="mv" id="f1">—</span><br><span style="font-size:11px;color:#9fa8da">適合率と再現率の調和平均</span></div>
+        </div>
+        <div class="note" id="note"></div>
+      </div>
+    </div>
+  </div>
+
+<script>
+  const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+  const W=cv.width,H=cv.height,pad=30;
+  // [スパムらしさスコア, 本当にスパム?1/0]
+  const mails=[
+    [0.95,1],[0.88,1],[0.82,1],[0.78,1],[0.72,1],[0.66,1],[0.61,1],[0.55,1],[0.48,1],[0.40,1],
+    [0.05,0],[0.12,0],[0.18,0],[0.24,0],[0.30,0],[0.36,0],[0.44,0],[0.52,0],[0.58,0],[0.68,0]
+  ];
+  const sx=s=>pad+s*(W-2*pad);
+
+  function draw(){
+    const th=+document.getElementById('th').value;
+    document.getElementById('thV').textContent=th.toFixed(2);
+    ctx.clearRect(0,0,W,H);
+    // axis
+    ctx.strokeStyle='#2a3158';ctx.beginPath();ctx.moveTo(pad,H-40);ctx.lineTo(W-pad,H-40);ctx.stroke();
+    ctx.fillStyle='#5c6bc0';ctx.font='11px sans-serif';
+    ctx.fillText('スパムらしさ 0',pad-6,H-22);ctx.fillText('1',W-pad-2,H-22);
+    // threshold
+    ctx.strokeStyle='#ce93d8';ctx.lineWidth=2;ctx.setLineDash([5,4]);
+    ctx.beginPath();ctx.moveTo(sx(th),20);ctx.lineTo(sx(th),H-40);ctx.stroke();ctx.setLineDash([]);
+    ctx.fillStyle='#ce93d8';ctx.fillText('しきい値',sx(th)-18,14);
+    ctx.fillStyle='#5c6bc0';ctx.fillText('←正常と判定',pad+10,34);ctx.fillText('スパムと判定→',W-pad-90,34);
+    // mails as dots (stack by score band)
+    let tp=0,fp=0,fn=0,tn=0;
+    const bins={};
+    for(const[s,lab]of mails){
+      const judged=s>=th?1:0;
+      if(lab===1&&judged===1)tp++; else if(lab===1&&judged===0)fn++;
+      else if(lab===0&&judged===1)fp++; else tn++;
+      const bx=Math.round(sx(s));
+      bins[bx]=(bins[bx]||0);
+      const yy=H-52-bins[bx]*16; bins[bx]++;
+      ctx.fillStyle=lab===1?'#ff6e6e':'#42a5f5';
+      ctx.beginPath();ctx.arc(sx(s),yy,6,0,7);ctx.fill();
+      // ring if misjudged
+      if(lab!==judged){ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.beginPath();ctx.arc(sx(s),yy,9,0,7);ctx.stroke();}
+    }
+    document.getElementById('tp').textContent=tp;
+    document.getElementById('fp').textContent=fp;
+    document.getElementById('fn').textContent=fn;
+    document.getElementById('tn').textContent=tn;
+    const acc=(tp+tn)/mails.length;
+    const prec=tp+fp>0?tp/(tp+fp):0;
+    const rec=tp+fn>0?tp/(tp+fn):0;
+    const f1=prec+rec>0?2*prec*rec/(prec+rec):0;
+    document.getElementById('acc').textContent=(acc*100).toFixed(0)+'%';
+    document.getElementById('prec').textContent=(prec*100).toFixed(0)+'%';
+    document.getElementById('rec').textContent=(rec*100).toFixed(0)+'%';
+    document.getElementById('f1').textContent=(f1*100).toFixed(0)+'%';
+    const note=document.getElementById('note');
+    if(th<=0.35) note.innerHTML='しきい値が<span class="hl">低い</span>：なんでもスパム判定。<span style="color:#ff6e6e">見逃し(FN)は減る＝再現率↑</span>だが、<span style="color:#ff8a65">正常メールを巻き込む(FP)＝適合率↓</span>。';
+    else if(th>=0.65) note.innerHTML='しきい値が<span class="hl">高い</span>：確実なものだけスパム判定。<span style="color:#ff8a65">巻き込み(FP)は減る＝適合率↑</span>だが、<span style="color:#ff6e6e">スパムを見逃す(FN)＝再現率↓</span>。';
+    else note.innerHTML='適合率と再現率は<span class="hl">トレードオフ</span>（片方を上げると片方が下がる）。両者のバランスを見るのが<span class="hl">F値</span>。';
+  }
+  document.getElementById('th').addEventListener('input',draw);
+  draw();
+</script>
+</body>
+</html>
