@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>画像タスクの粒度 ビジュアル</title>
+<style>
+  *{box-sizing:border-box;}
+  body{font-family:-apple-system,"Hiragino Sans","Yu Gothic",sans-serif;background:#0f1226;color:#e8eaf6;margin:0;padding:24px;line-height:1.6;}
+  h1{font-size:22px;margin:0 0 4px;} .sub{color:#9fa8da;font-size:14px;margin-bottom:18px;}
+  .panel{background:#1a1f3d;border-radius:14px;padding:20px;margin-bottom:18px;box-shadow:0 4px 16px rgba(0,0,0,.3);}
+  .row{display:flex;gap:30px;flex-wrap:wrap;align-items:flex-start;}
+  canvas{background:#0a0d1f;border-radius:10px;}
+  .side{min-width:320px;flex:1;display:flex;flex-direction:column;gap:14px;}
+  .ctrl label{font-size:13px;color:#9fa8da;display:block;margin-bottom:6px;}
+  input[type=range]{width:100%;}
+  .stage{font-size:20px;font-weight:bold;color:#ffd54f;}
+  .stageEn{font-size:13px;color:#9fa8da;}
+  .desc{background:#11142b;padding:14px;border-radius:8px;font-size:14px;}
+  .desc .hl{color:#ffd54f;font-weight:bold;}
+  .ladder{font-size:12px;color:#5c6bc0;line-height:1.9;}
+  .ladder .on{color:#ffd54f;font-weight:bold;}
+  .legend{font-size:12px;color:#9fa8da;margin-top:8px;}
+  .dot{display:inline-block;width:11px;height:11px;border-radius:3px;vertical-align:middle;margin:0 3px 0 8px;}
+  .q{background:#16302c;border-left:4px solid #26a69a;padding:12px 14px;border-radius:8px;font-size:13px;color:#b2dfdb;}
+</style>
+</head>
+<body>
+  <a href="00_目次.html" style="display:inline-block;margin:0 0 16px;color:#9fa8da;text-decoration:none;font-size:14px;background:#1a1f3d;padding:7px 16px;border-radius:8px;border:1px solid #2a3158;">← 目次へ戻る</a>
+  <h1>🖼️ 画像タスクの粒度 — 分類→検出→セグメンテーション</h1>
+  <div class="sub">同じ「猫2匹・犬1匹」の画像に対し、タスクの粒度を上げると出力がどう変わるか。スライダーを動かそう。</div>
+
+  <div class="panel">
+    <div class="row">
+      <div>
+        <canvas id="cv" width="440" height="300"></canvas>
+        <div class="legend" id="legend"></div>
+      </div>
+      <div class="side">
+        <div class="ctrl">
+          <label>タスクの粒度（粗い → 細かい）</label>
+          <input id="lv" type="range" min="0" max="4" step="1" value="0">
+        </div>
+        <div>
+          <div class="stage" id="stageJa">画像分類</div>
+          <div class="stageEn" id="stageEn">Image Classification</div>
+        </div>
+        <div class="desc" id="desc"></div>
+        <div class="ladder">
+          <div data-l="0">① 画像分類　画像全体に1ラベル</div>
+          <div data-l="1">② 物体検出　BBoxで「どこに何が」</div>
+          <div data-l="2">③ セマンティックSeg　全画素を色分け（同種は混ぜる）</div>
+          <div data-l="3">④ インスタンスSeg　物体ごとに区別（背景は対象外）</div>
+          <div data-l="4">⑤ パノプティックSeg　②③合体（全画素＋個体ID）</div>
+        </div>
+        <div class="q" id="quiz"></div>
+      </div>
+    </div>
+  </div>
+
+<script>
+  const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+  const W=cv.width,H=cv.height,GROUND=215;
+  // 物体：猫2匹・犬1匹。bbox=[x,y,w,h]
+  const objs=[
+    {type:'cat',name:'猫',cx:92, cy:170,rx:36,ry:30,inst:'#ff9800'},
+    {type:'cat',name:'猫',cx:188,cy:188,rx:32,ry:26,inst:'#ec407a'},
+    {type:'dog',name:'犬',cx:330,cy:178,rx:50,ry:40,inst:'#42a5f5'},
+  ];
+  const CLASS={cat:'#ff9800',dog:'#42a5f5',sky:'#4fc3f7',ground:'#66bb6a'};
+
+  function bbox(o){return [o.cx-o.rx-6,o.cy-o.ry-12,(o.rx+6)*2,(o.ry+12)*2];}
+
+  function drawScene(){
+    // 空・地面（うっすら）
+    ctx.fillStyle='#0a0d1f';ctx.fillRect(0,0,W,H);
+    ctx.fillStyle='rgba(79,195,247,.06)';ctx.fillRect(0,0,W,GROUND);
+    ctx.fillStyle='rgba(102,187,106,.07)';ctx.fillRect(0,GROUND,W,H-GROUND);
+    ctx.strokeStyle='#1c2347';ctx.beginPath();ctx.moveTo(0,GROUND);ctx.lineTo(W,GROUND);ctx.stroke();
+    for(const o of objs) drawAnimal(o);
+  }
+  function drawAnimal(o){
+    ctx.save();
+    // 体
+    ctx.fillStyle='#cfd3e8';
+    ctx.beginPath();ctx.ellipse(o.cx,o.cy,o.rx,o.ry,0,0,7);ctx.fill();
+    // 頭
+    const hx=o.cx,hy=o.cy-o.ry*0.9,hr=o.rx*0.62;
+    ctx.beginPath();ctx.arc(hx,hy,hr,0,7);ctx.fill();
+    // 耳
+    ctx.beginPath();
+    if(o.type==='cat'){ // とがり耳
+      ctx.moveTo(hx-hr*0.7,hy-hr*0.5);ctx.lineTo(hx-hr*0.3,hy-hr*1.3);ctx.lineTo(hx-hr*0.05,hy-hr*0.6);
+      ctx.moveTo(hx+hr*0.7,hy-hr*0.5);ctx.lineTo(hx+hr*0.3,hy-hr*1.3);ctx.lineTo(hx+hr*0.05,hy-hr*0.6);
+      ctx.fill();
+    }else{ // 垂れ耳
+      ctx.ellipse(hx-hr*0.85,hy,hr*0.32,hr*0.6,0.3,0,7);ctx.fill();
+      ctx.beginPath();ctx.ellipse(hx+hr*0.85,hy,hr*0.32,hr*0.6,-0.3,0,7);ctx.fill();
+    }
+    // 目
+    ctx.fillStyle='#0a0d1f';
+    ctx.beginPath();ctx.arc(hx-hr*0.32,hy,hr*0.13,0,7);ctx.arc(hx+hr*0.32,hy,hr*0.13,0,7);ctx.fill();
+    ctx.restore();
+  }
+  function fillMask(o,color){
+    ctx.save();ctx.globalAlpha=0.55;ctx.fillStyle=color;
+    ctx.beginPath();ctx.ellipse(o.cx,o.cy,o.rx+3,o.ry+4,0,0,7);ctx.fill();
+    const hr=o.rx*0.62;ctx.beginPath();ctx.arc(o.cx,o.cy-o.ry*0.9,hr+2,0,7);ctx.fill();
+    ctx.restore();
+  }
+  function fillBackground(){
+    ctx.save();ctx.globalAlpha=0.30;
+    ctx.fillStyle=CLASS.sky;ctx.fillRect(0,0,W,GROUND);
+    ctx.fillStyle=CLASS.ground;ctx.fillRect(0,GROUND,W,H-GROUND);
+    ctx.restore();
+  }
+  function tag(x,y,text,color){
+    ctx.font='bold 13px sans-serif';const w=ctx.measureText(text).width+12;
+    ctx.fillStyle=color;ctx.fillRect(x,y-16,w,17);
+    ctx.fillStyle='#0a0d1f';ctx.fillText(text,x+6,y-3);
+  }
+
+  const DESC=[
+    {ja:'画像分類',en:'Image Classification',
+     d:'画像<span class="hl">全体に1つのラベル</span>を付ける。「この画像は<span class="hl">猫</span>」。<span class="hl">位置は問わない</span>。複数物体があっても代表1つ。',
+     q:'Q. 「何があるか」だけで位置を出さないタスクは？ → これ（分類）と物体識別。'},
+    {ja:'物体検出',en:'Object Detection',
+     d:'各物体を<span class="hl">バウンディングボックス(BBox)で囲み</span>、クラスを付ける。<span class="hl">「どこに・何が」</span>。代表ネットワーク＝<span class="hl">YOLO・SSD(1段階)／R-CNN系(2段階)</span>。',
+     q:'Q. 物体識別との違いは？ → 検出は<b>場所(BBox)も</b>出す。識別は名前だけ。'},
+    {ja:'セマンティックセグメンテーション',en:'Semantic Segmentation',
+     d:'<span class="hl">全画素</span>をクラスで色分け。<span class="hl">同じクラスは区別しない</span>（猫2匹は同じ色）。<span class="hl">背景も塗る</span>。代表＝U-Net・SegNet・PSPNet・DeepLab。',
+     q:'Q. 猫が2匹いても同じ色なのはなぜ？ → セマンティックは<b>クラス単位</b>。個体は混ぜる。'},
+    {ja:'インスタンスセグメンテーション',en:'Instance Segmentation',
+     d:'物体ごとにマスクを作り、<span class="hl">同じクラスでも個体を区別</span>（猫A・猫Bを別色）。<span class="hl">背景は対象外</span>。代表＝Mask R-CNN。',
+     q:'Q. セマンティックとの差は？ → 同クラスの<b>個体を分ける</b>／背景は塗らない。'},
+    {ja:'パノプティックセグメンテーション',en:'Panoptic Segmentation',
+     d:'セマンティック＋インスタンスの<span class="hl">合体</span>。<span class="hl">全画素を塗り</span>、かつ<span class="hl">物体ごとにID</span>を付ける（背景も個体も全部）。',
+     q:'Q. パノプティックの特徴は？ → <b>全画素</b>＋<b>個体ID</b>の両取り。'},
+  ];
+
+  function draw(){
+    const lv=+document.getElementById('lv').value;
+    drawScene();
+    let legend='';
+    if(lv===0){
+      // 全体枠＋分類ラベル
+      ctx.strokeStyle='#ffd54f';ctx.lineWidth=3;ctx.setLineDash([6,4]);
+      ctx.strokeRect(6,6,W-12,H-12);ctx.setLineDash([]);
+      tag(12,30,'分類: 🐱 猫 (0.87)','#ffd54f');
+      legend='画像まるごとに1ラベル。位置情報なし。';
+    }else if(lv===1){
+      for(const o of objs){const[x,y,w,h]=bbox(o);
+        ctx.strokeStyle=CLASS[o.type];ctx.lineWidth=3;ctx.strokeRect(x,y,w,h);
+        tag(x,y,o.name,CLASS[o.type]);}
+      legend='<span class="dot" style="background:#ff9800"></span>猫の枠 <span class="dot" style="background:#42a5f5"></span>犬の枠 ／ BBox＝どこに何が';
+    }else if(lv===2){
+      fillBackground();
+      for(const o of objs) fillMask(o,CLASS[o.type]); // クラス色（猫2匹同色）
+      drawScene2Overlay();
+      legend='<span class="dot" style="background:#ff9800"></span>猫(2匹とも同色) <span class="dot" style="background:#42a5f5"></span>犬 <span class="dot" style="background:#4fc3f7"></span>空 <span class="dot" style="background:#66bb6a"></span>地面 ／ 全画素・同種は混ぜる';
+    }else if(lv===3){
+      for(const o of objs) fillMask(o,o.inst); // 個体別色、背景は塗らない
+      drawScene2Overlay();
+      legend='<span class="dot" style="background:#ff9800"></span>猫A <span class="dot" style="background:#ec407a"></span>猫B <span class="dot" style="background:#42a5f5"></span>犬 ／ 個体を区別・背景は対象外';
+    }else{
+      fillBackground();
+      objs.forEach((o,i)=>{fillMask(o,o.inst);});
+      drawScene2Overlay();
+      objs.forEach((o,i)=>{tag(o.cx-o.rx,o.cy-o.ry-12,o.name+' #'+(i+1),o.inst);});
+      legend='全画素を塗る＋物体ごとにID(#1,#2,#3)。背景(空・地面)も塗る＝②③合体';
+    }
+    document.getElementById('legend').innerHTML=legend;
+    const info=DESC[lv];
+    document.getElementById('stageJa').textContent=info.ja;
+    document.getElementById('stageEn').textContent=info.en;
+    document.getElementById('desc').innerHTML=info.d;
+    document.getElementById('quiz').innerHTML=info.q;
+    document.querySelectorAll('.ladder div').forEach(d=>{
+      d.classList.toggle('on',+d.dataset.l===lv);});
+  }
+  // マスクの上から動物の輪郭を薄く再描画（形が見えるように）
+  function drawScene2Overlay(){
+    ctx.save();ctx.globalAlpha=0.25;for(const o of objs)drawAnimal(o);ctx.restore();
+  }
+  document.getElementById('lv').addEventListener('input',draw);
+  draw();
+</script>
+</body>
+</html>

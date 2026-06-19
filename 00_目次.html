@@ -13,87 +13,152 @@
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <style>
   body{font-family:-apple-system,"Hiragino Sans","Yu Gothic",sans-serif;background:#0f1226;color:#e8eaf6;margin:0;padding:40px;line-height:1.7;}
-  h1{font-size:24px;} .sub{color:#9fa8da;margin-bottom:24px;}
-  a.card{display:block;background:#1a1f3d;border-radius:12px;padding:18px 22px;margin-bottom:14px;text-decoration:none;color:#e8eaf6;box-shadow:0 4px 16px rgba(0,0,0,.3);transition:.15s;border-left:4px solid #7c4dff;}
+  h1{font-size:24px;margin-bottom:2px;} .sub{color:#9fa8da;margin-bottom:24px;}
+  /* 章アコーディオン */
+  details.chap{background:#141838;border-radius:12px;margin-bottom:12px;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,.25);}
+  details.chap>summary{list-style:none;cursor:pointer;padding:16px 20px;display:flex;align-items:center;gap:12px;font-size:17px;font-weight:bold;border-left:4px solid #7c4dff;}
+  details.chap>summary::-webkit-details-marker{display:none;}
+  details.chap>summary::before{content:"▶";color:#7c4dff;font-size:12px;transition:.2s;}
+  details.chap[open]>summary::before{transform:rotate(90deg);}
+  .chnum{color:#9fa8da;font-size:13px;font-weight:normal;}
+  .badge{margin-left:auto;background:#7c4dff;color:#fff;font-size:12px;font-weight:bold;padding:2px 10px;border-radius:20px;}
+  .badge.soon{background:#2a3158;color:#9fa8da;}
+  details.chap.empty>summary{border-left-color:#2a3158;color:#9fa8da;}
+  details.chap.empty>summary::before{color:#3a4170;}
+  .chap-body{padding:6px 16px 16px;}
+  .soon-msg{color:#5c6bc0;font-size:13px;padding:8px 4px;}
+  /* 教材カード */
+  a.card{display:block;background:#1a1f3d;border-radius:10px;padding:14px 18px;margin:10px 0;text-decoration:none;color:#e8eaf6;transition:.15s;border-left:3px solid #5c6bc0;}
   a.card:hover{background:#222a52;transform:translateX(4px);}
-  a.card .t{font-size:18px;font-weight:bold;}
-  a.card .d{font-size:13px;color:#9fa8da;margin-top:4px;}
-  a.note{border-left-color:#26a69a;background:#16302c;}
+  a.card .t{font-size:16px;font-weight:bold;}
+  a.card .d{font-size:12.5px;color:#9fa8da;margin-top:3px;}
+  a.note{display:block;background:#16302c;border-radius:12px;padding:18px 22px;margin-bottom:18px;text-decoration:none;color:#e8eaf6;box-shadow:0 4px 16px rgba(0,0,0,.3);border-left:4px solid #26a69a;}
   a.note:hover{background:#1d3f39;}
+  a.note .t{font-size:18px;font-weight:bold;} a.note .d{font-size:13px;color:#9fa8da;margin-top:4px;}
   .foot{color:#5c6bc0;font-size:12px;margin-top:30px;}
-  @media (max-width:600px){body{padding:20px 16px;}}
+  @media (max-width:600px){body{padding:20px 16px;} details.chap>summary{font-size:15px;}}
 </style>
 </head>
 <body>
   <h1>🎓 G検定 ビジュアル教材</h1>
-  <div class="sub">手で動かして理解する用の図。タップで開く。</div>
+  <div class="sub">問題集の章立て順。章をタップで開く。手で動かして理解する用の図。</div>
 
-  <a class="card note" href="学習ノート.html">
+  <a class="note" href="学習ノート.html">
     <div class="t">📔 学習ノート（まとめ・覚えるリスト・弱点リスト）</div>
-    <div class="d">CNN/RNN/Transformer/教師あり学習/評価指標などのまとめと、覚えるリスト・弱点リスト。試験前の見返し用。</div>
+    <div class="d">章をまたいだまとめ。覚えるリスト・弱点リスト。試験前の見返し用。</div>
   </a>
 
-  <a class="card" href="01_畳み込み出力サイズ.html">
-    <div class="t">📐 01. 畳み込みの出力サイズ</div>
-    <div class="d">フィルタがスライドする様子で「なぜ出力サイズがこうなるか」を体感。入力・フィルタ・ストライド・パディングを変えられる。</div>
-  </a>
+  <details class="chap empty">
+    <summary><span class="chnum">第1章</span> 人工知能とは <span class="badge soon">準備中</span></summary>
+    <div class="chap-body"><div class="soon-msg">🚧 この章のビジュアル教材はまだありません</div></div>
+  </details>
 
-  <a class="card" href="02_線形回帰.html">
-    <div class="t">📈 02. 線形回帰</div>
-    <div class="d">直線を動かして誤差（赤線）の変化を体感。最小二乗法で最適な直線に一発フィット。</div>
-  </a>
+  <details class="chap empty">
+    <summary><span class="chnum">第2章</span> 人工知能をめぐる動向 <span class="badge soon">準備中</span></summary>
+    <div class="chap-body"><div class="soon-msg">🚧 この章のビジュアル教材はまだありません</div></div>
+  </details>
 
-  <a class="card" href="03_ロジスティック回帰.html">
-    <div class="t">🐱🐶 03. ロジスティック回帰</div>
-    <div class="d">S字カーブ（シグモイド）で合格"確率"を出し、0.5で合否を線引き。境界とカーブの急さを動かせる。試し予測つき。</div>
-  </a>
+  <details class="chap" open>
+    <summary><span class="chnum">第3章</span> 機械学習の概要 <span class="badge">11</span></summary>
+    <div class="chap-body">
+      <a class="card" href="02_線形回帰.html">
+        <div class="t">📈 線形回帰</div>
+        <div class="d">直線を動かして誤差（赤線）の変化を体感。最小二乗法で最適な直線に一発フィット。</div>
+      </a>
+      <a class="card" href="03_ロジスティック回帰.html">
+        <div class="t">🐱🐶 ロジスティック回帰</div>
+        <div class="d">S字カーブ（シグモイド）で合格"確率"を出し、0.5で合否を線引き。境界とカーブの急さを動かせる。</div>
+      </a>
+      <a class="card" href="04_直線で分類する失敗例.html">
+        <div class="t">📏💥 直線で分類する失敗例</div>
+        <div class="d">合否データに直線を当てると確率が100%超やマイナスに突き抜ける／外れ値で崩れる。ロジスティック回帰の必要性が分かる。</div>
+      </a>
+      <a class="card" href="05_SVMマージン最大化.html">
+        <div class="t">📏 SVM（マージン最大化）</div>
+        <div class="d">2クラスを分ける境界線を動かし、マージンが最大になる線を探す。サポートベクターが光る。</div>
+      </a>
+      <a class="card" href="06_決定木.html">
+        <div class="t">🌳 決定木</div>
+        <div class="d">年齢・年収から購入を予測。木の深さを変えると空間が区切られ、深すぎると過学習する様子が見える。</div>
+      </a>
+      <a class="card" href="07_ランダムフォレスト.html">
+        <div class="t">🌲🌲🌲 ランダムフォレスト</div>
+        <div class="d">少しずつ違う決定木で多数決（バギング）。木を増やすと境界がなめらか・安定し過学習に強くなる。</div>
+      </a>
+      <a class="card" href="08_勾配ブースティング.html">
+        <div class="t">🏆 勾配ブースティング</div>
+        <div class="d">木を1本ずつ足して前のズレ（残差）を埋める＝逐次・誤り補正。ランダムフォレスト(並列)との対比。</div>
+      </a>
+      <a class="card" href="09_kNN.html">
+        <div class="t">🎯 k-NN（k近傍法）</div>
+        <div class="d">マウスを動かすとご近所k個と多数決の結果が見える。kで境界がカクカク↔なめらかに変わる。</div>
+      </a>
+      <a class="card" href="10_評価指標.html">
+        <div class="t">📊 評価指標（混同行列・適合率・再現率・F値）</div>
+        <div class="d">スパム判定のしきい値を動かすと混同行列と各指標が変化。適合率と再現率のトレードオフを体感。</div>
+      </a>
+      <a class="card" href="11_ROC曲線とAUC.html">
+        <div class="t">📈 ROC曲線とAUC</div>
+        <div class="d">しきい値を動かすとROC曲線上を点が移動。曲線が左上に張り出すほど良いモデル＝AUC大。</div>
+      </a>
+      <a class="card" href="12_AUCの大きさ.html">
+        <div class="t">📈 AUCの大きさ（1に近いとは?）</div>
+        <div class="d">モデルの分離度を動かすとROC曲線が左上に張り付き面積→1。混ざると対角線＝0.5。</div>
+      </a>
+    </div>
+  </details>
 
-  <a class="card" href="04_直線で分類する失敗例.html">
-    <div class="t">📏💥 04. 直線で分類する失敗例</div>
-    <div class="d">合否データに直線（線形回帰）を当てはめると確率が100%超やマイナスに突き抜ける／外れ値で境界が崩れる様子。ロジスティック回帰の必要性が分かる。</div>
-  </a>
+  <details class="chap empty">
+    <summary><span class="chnum">第4章</span> ディープラーニングの概要 <span class="badge soon">準備中</span></summary>
+    <div class="chap-body"><div class="soon-msg">🚧 この章のビジュアル教材はまだありません</div></div>
+  </details>
 
-  <a class="card" href="05_SVMマージン最大化.html">
-    <div class="t">📏 05. SVM（マージン最大化）</div>
-    <div class="d">2クラスを分ける境界線を動かし、マージン（間隔）が最大になる線を探す。サポートベクターが光る。「余裕をもって分ける」を体感。</div>
-  </a>
+  <details class="chap" open>
+    <summary><span class="chnum">第5章</span> ディープラーニングの手法 <span class="badge">1</span></summary>
+    <div class="chap-body">
+      <a class="card" href="01_畳み込み出力サイズ.html">
+        <div class="t">📐 畳み込みの出力サイズ</div>
+        <div class="d">フィルタがスライドする様子で「なぜ出力サイズがこうなるか」を体感。入力・フィルタ・ストライド・パディングを変えられる。</div>
+      </a>
+    </div>
+  </details>
 
-  <a class="card" href="06_決定木.html">
-    <div class="t">🌳 06. 決定木</div>
-    <div class="d">年齢・年収から購入を予測。木の深さを変えると、空間が区切られていく様子＆深すぎると過学習する様子が見える。右に木の構造も表示。</div>
-  </a>
+  <details class="chap" open>
+    <summary><span class="chnum">第6章</span> ディープラーニングの応用例 <span class="badge">1</span></summary>
+    <div class="chap-body">
+      <a class="card" href="13_画像タスクの粒度.html">
+        <div class="t">🖼️ 画像タスクの粒度（分類→検出→セグメンテーション）</div>
+        <div class="d">同じ画像にタスクの粒度スライダーを当てると、分類→物体検出→セマンティック/インスタンス/パノプティックと出力が変化。検出vs識別、各セグメンテーションの違いを体感。</div>
+      </a>
+    </div>
+  </details>
 
-  <a class="card" href="07_ランダムフォレスト.html">
-    <div class="t">🌲🌲🌲 07. ランダムフォレスト</div>
-    <div class="d">少しずつ違う決定木をたくさん作って多数決（バギング）。木の本数を増やすと境界がなめらか・安定し、過学習に強くなる様子が見える。</div>
-  </a>
+  <details class="chap empty">
+    <summary><span class="chnum">第7章</span> AIの社会実装に向けて <span class="badge soon">準備中</span></summary>
+    <div class="chap-body"><div class="soon-msg">🚧 この章のビジュアル教材はまだありません</div></div>
+  </details>
 
-  <a class="card" href="08_勾配ブースティング.html">
-    <div class="t">🏆 08. 勾配ブースティング</div>
-    <div class="d">気温→アイス売上を予測。木を1本ずつ足すと、前のズレ（残差）を埋めて予測がデータに吸い付く＝逐次・誤りを補正。ランダムフォレスト(並列)との対比。</div>
-  </a>
+  <details class="chap empty">
+    <summary><span class="chnum">第8章</span> AIに必要な数理・統計知識 <span class="badge soon">準備中</span></summary>
+    <div class="chap-body"><div class="soon-msg">🚧 この章のビジュアル教材はまだありません</div></div>
+  </details>
 
-  <a class="card" href="09_kNN.html">
-    <div class="t">🎯 09. k-NN（k近傍法）</div>
-    <div class="d">マウスを動かすと、その地点のご近所k個と多数決の結果が見える。kを変えると境界がカクカク↔なめらかに変わる（kの大小と過学習）。</div>
-  </a>
+  <details class="chap empty">
+    <summary><span class="chnum">第9章</span> AIに関する法律と契約 <span class="badge soon">準備中</span></summary>
+    <div class="chap-body"><div class="soon-msg">🚧 この章のビジュアル教材はまだありません</div></div>
+  </details>
 
-  <a class="card" href="10_評価指標.html">
-    <div class="t">📊 10. 評価指標（混同行列・適合率・再現率・F値）</div>
-    <div class="d">スパム判定のしきい値を動かすと、混同行列(TP/FP/FN/TN)と各指標が変化。適合率と再現率のトレードオフが体感できる。</div>
-  </a>
+  <details class="chap empty">
+    <summary><span class="chnum">第10章</span> AI倫理・AIガバナンス <span class="badge soon">準備中</span></summary>
+    <div class="chap-body"><div class="soon-msg">🚧 この章のビジュアル教材はまだありません</div></div>
+  </details>
 
-  <a class="card" href="11_ROC曲線とAUC.html">
-    <div class="t">📈 11. ROC曲線とAUC</div>
-    <div class="d">しきい値を動かすとROC曲線上を点が移動。曲線が左上に張り出すほど良いモデル＝AUC大。スパム判定の例とリンク。</div>
-  </a>
+  <details class="chap empty">
+    <summary><span class="chnum">第11章</span> 総仕上げ問題 <span class="badge soon">準備中</span></summary>
+    <div class="chap-body"><div class="soon-msg">🚧 この章のビジュアル教材はまだありません</div></div>
+  </details>
 
-  <a class="card" href="12_AUCの大きさ.html">
-    <div class="t">📈 12. AUCの大きさ（1に近いとは?）</div>
-    <div class="d">モデルの良さ（分離度）を動かすと、ROC曲線が左上の角に張り付き緑の面積が四角を埋める＝AUC→1。逆に混ざると対角線＝0.5。</div>
-  </a>
-
-  <div class="foot">MIXION GAMES / G検定対策 ・ 追加したら随時このページにカードを足していく</div>
+  <div class="foot">MIXION GAMES / G検定対策 ・ 問題集の章立て準拠。教材を追加したら該当章にカードを足していく</div>
   <script>
     if('serviceWorker' in navigator){
       window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
