@@ -1,5 +1,5 @@
 // G検定ビジュアル教材 Service Worker（オフライン対応）
-const CACHE = 'gken-visual-v3';
+const CACHE = 'gken-visual-v4';
 const ASSETS = [
   './',
   './00_目次.html',
@@ -17,6 +17,9 @@ const ASSETS = [
   './11_ROC曲線とAUC.html',
   './12_AUCの大きさ.html',
   './13_画像タスクの粒度.html',
+  './14_物体検出2段階vs1段階.html',
+  './15_DilatedConvolution.html',
+  './16_SelectiveSearch.html',
   './marked.min.js',
   './manifest.json',
   './icon-192.png',

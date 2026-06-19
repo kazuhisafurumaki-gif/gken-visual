@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Selective Search ビジュアル</title>
+<style>
+  *{box-sizing:border-box;}
+  body{font-family:-apple-system,"Hiragino Sans","Yu Gothic",sans-serif;background:#0f1226;color:#e8eaf6;margin:0;padding:24px;line-height:1.6;}
+  h1{font-size:22px;margin:0 0 4px;} .sub{color:#9fa8da;font-size:14px;margin-bottom:18px;}
+  .panel{background:#1a1f3d;border-radius:14px;padding:20px;margin-bottom:18px;box-shadow:0 4px 16px rgba(0,0,0,.3);}
+  .row{display:flex;gap:30px;flex-wrap:wrap;align-items:flex-start;}
+  canvas{background:#0a0d1f;border-radius:10px;}
+  .side{min-width:320px;flex:1;display:flex;flex-direction:column;gap:14px;}
+  .ctrl label{font-size:13px;color:#9fa8da;display:block;margin-bottom:6px;}
+  input[type=range]{width:100%;}
+  .stage{font-size:18px;font-weight:bold;color:#ffd54f;}
+  .desc{background:#11142b;padding:14px;border-radius:8px;font-size:14px;}
+  .desc .hl{color:#ffd54f;font-weight:bold;}
+  .legend{font-size:12px;color:#9fa8da;margin-top:8px;}
+</style>
+</head>
+<body>
+  <a href="00_目次.html" style="display:inline-block;margin:0 0 16px;color:#9fa8da;text-decoration:none;font-size:14px;background:#1a1f3d;padding:7px 16px;border-radius:8px;border:1px solid #2a3158;">← 目次へ戻る</a>
+  <h1>🔍 Selective Search（選択的探索）</h1>
+  <div class="sub">機械学習ではなくルールベース。小さく分けた領域を「色・テクスチャの近さ」でマージしていき、物体がありそうな候補領域を出す。R-CNN・Fast R-CNNが使用。</div>
+
+  <div class="panel">
+    <div class="row">
+      <div>
+        <canvas id="cv" width="440" height="300"></canvas>
+        <div class="legend" id="legend"></div>
+      </div>
+      <div class="side">
+        <div class="ctrl">
+          <label>マージの段階（細→粗→候補領域）</label>
+          <input id="step" type="range" min="0" max="3" step="1" value="0">
+        </div>
+        <div class="stage" id="stage"></div>
+        <div class="desc" id="desc"></div>
+        <div class="desc" style="background:#16302c;border-left:4px solid #26a69a;color:#b2dfdb;font-size:13px;">
+          🔑 <b>R-CNN系の進化</b>：候補出しを <b>Selective Search（手作りルール・遅い）</b> から <b>RPN（NN・速い）</b> に置き換えたのが <b>Faster R-CNN</b>。「Fasterで卒業」。
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+  const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+  const W=cv.width,H=cv.height,GROUND=215;
+  const objs=[
+    {type:'cat',name:'猫',cx:115,cy:172,rx:40,ry:32},
+    {type:'dog',name:'犬',cx:320,cy:178,rx:52,ry:42},
+  ];
+  function rnd(n){const x=Math.sin(n*12.9898)*43758.5453;return x-Math.floor(x);}
+  // セルの「本当の所属」
+  function attr(px,py){
+    for(const o of objs){const dx=(px-o.cx)/o.rx,dy=(py-(o.cy-o.ry*0.3))/(o.ry*1.3);
+      if(dx*dx+dy*dy<=1)return o.type;}
+    return py<GROUND?'sky':'ground';
+  }
+  const COL={sky:[79,195,247],ground:[102,187,106],cat:[255,152,0],dog:[66,165,245]};
+  function bboxOf(type){
+    let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;const o=objs.find(o=>o.type===type);
+    return [o.cx-o.rx-6,o.cy-o.ry-14,(o.rx+6)*2,(o.ry+16)*2];
+  }
+  const CELL=20, COLS=Math.ceil(W/CELL), ROWS=Math.ceil(H/CELL);
+  const TXT=[
+    {s:'Step0: 細かい初期領域',d:'画像を<span class="hl">小さな領域に細分化</span>（過分割）。まだバラバラのモザイク状態。'},
+    {s:'Step1: 似た領域をマージ',d:'隣り合う領域を<span class="hl">色・テクスチャ・サイズ・形の近さ</span>でくっつけていく（貪欲なマージ）。'},
+    {s:'Step2: さらにマージ',d:'マージが進み、<span class="hl">物体のまとまり</span>が見えてくる。同じ物体の画素が1つの領域に。'},
+    {s:'Step3: 候補領域(BBox)を出力',d:'まとまった領域を四角で囲み<span class="hl">候補領域(約2000個)</span>として出力。これをCNNに渡す＝R-CNN。'},
+  ];
+  function draw(){
+    const step=+document.getElementById('step').value;
+    ctx.clearRect(0,0,W,H);
+    const amp=[0.5,0.3,0.13,0][step]; // 段階が進むほど明度ゆらぎ減＝まとまって見える
+    for(let j=0;j<ROWS;j++)for(let i=0;i<COLS;i++){
+      const px=i*CELL+CELL/2, py=j*CELL+CELL/2;
+      const a=attr(px,py); const base=COL[a];
+      const f=1+(rnd(i*31+j*7)-0.5)*amp*2;
+      ctx.fillStyle='rgb('+Math.min(255,base[0]*f|0)+','+Math.min(255,base[1]*f|0)+','+Math.min(255,base[2]*f|0)+')';
+      ctx.fillRect(i*CELL,j*CELL,CELL,CELL);
+      if(step<=1){ctx.strokeStyle='rgba(10,13,31,.35)';ctx.strokeRect(i*CELL+0.5,j*CELL+0.5,CELL,CELL);}
+    }
+    let legend='';
+    if(step===3){
+      for(const o of objs){const[x,y,w,h]=bboxOf(o.type);
+        ctx.strokeStyle='#ffd54f';ctx.lineWidth=3;ctx.setLineDash([6,4]);ctx.strokeRect(x,y,w,h);ctx.setLineDash([]);
+        ctx.fillStyle='#ffd54f';ctx.font='bold 12px sans-serif';ctx.fillText('候補領域',x+2,y-4);}
+      legend='黄破線＝物体を囲む候補領域。これをCNNに渡して分類する';
+    }else{
+      legend=step===0?'細かいモザイク＝過分割の初期状態':'近い領域がまとまってきた（マージ進行中）';
+    }
+    document.getElementById('legend').textContent=legend;
+    document.getElementById('stage').textContent=TXT[step].s;
+    document.getElementById('desc').innerHTML=TXT[step].d;
+  }
+  document.getElementById('step').addEventListener('input',draw);
+  draw();
+</script>
+</body>
+</html>

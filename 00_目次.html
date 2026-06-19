@@ -124,11 +124,23 @@
   </details>
 
   <details class="chap" open>
-    <summary><span class="chnum">第6章</span> ディープラーニングの応用例 <span class="badge">1</span></summary>
+    <summary><span class="chnum">第6章</span> ディープラーニングの応用例 <span class="badge">4</span></summary>
     <div class="chap-body">
       <a class="card" href="13_画像タスクの粒度.html">
         <div class="t">🖼️ 画像タスクの粒度（分類→検出→セグメンテーション）</div>
         <div class="d">同じ画像にタスクの粒度スライダーを当てると、分類→物体検出→セマンティック/インスタンス/パノプティックと出力が変化。検出vs識別、各セグメンテーションの違いを体感。</div>
+      </a>
+      <a class="card" href="14_物体検出2段階vs1段階.html">
+        <div class="t">🔫 物体検出 2段階 vs 1段階</div>
+        <div class="d">方式を切り替え処理ステップを進める。R-CNN系(候補→分類)とYOLO/SSD(グリッドで一度に)の違い、NMSまでを対比。最頻出ポイント。</div>
+      </a>
+      <a class="card" href="15_DilatedConvolution.html">
+        <div class="t">🕳️ Dilated Convolution</div>
+        <div class="d">dilation rateを上げると、重みの数(9個)はそのままで受容野が広がる様子。少ない計算で広範囲＝DeepLabが採用。</div>
+      </a>
+      <a class="card" href="16_SelectiveSearch.html">
+        <div class="t">🔍 Selective Search</div>
+        <div class="d">小領域が色・テクスチャの近さでマージされ候補領域(BBox)になる過程。R-CNNが使用→FasterでRPNに進化。</div>
       </a>
     </div>
   </details>

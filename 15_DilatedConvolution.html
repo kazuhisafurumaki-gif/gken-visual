@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dilated Convolution ビジュアル</title>
+<style>
+  *{box-sizing:border-box;}
+  body{font-family:-apple-system,"Hiragino Sans","Yu Gothic",sans-serif;background:#0f1226;color:#e8eaf6;margin:0;padding:24px;line-height:1.6;}
+  h1{font-size:22px;margin:0 0 4px;} .sub{color:#9fa8da;font-size:14px;margin-bottom:18px;}
+  .panel{background:#1a1f3d;border-radius:14px;padding:20px;margin-bottom:18px;box-shadow:0 4px 16px rgba(0,0,0,.3);}
+  .row{display:flex;gap:30px;flex-wrap:wrap;align-items:flex-start;}
+  canvas{background:#0a0d1f;border-radius:10px;}
+  .side{min-width:320px;flex:1;display:flex;flex-direction:column;gap:14px;}
+  .ctrl label{font-size:13px;color:#9fa8da;display:block;margin-bottom:6px;}
+  input[type=range]{width:100%;} .v{color:#fff;font-weight:bold;font-size:18px;}
+  .desc{background:#11142b;padding:14px;border-radius:8px;font-size:14px;}
+  .desc .hl{color:#ffd54f;font-weight:bold;}
+  .metrics{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+  .m{background:#11142b;padding:10px;border-radius:8px;font-size:13px;text-align:center;}
+  .m .mv{font-size:22px;font-weight:bold;color:#ffd54f;}
+  .legend{font-size:12px;color:#9fa8da;margin-top:8px;}
+  .dot{display:inline-block;width:11px;height:11px;border-radius:3px;vertical-align:middle;margin:0 3px 0 8px;}
+</style>
+</head>
+<body>
+  <a href="00_目次.html" style="display:inline-block;margin:0 0 16px;color:#9fa8da;text-decoration:none;font-size:14px;background:#1a1f3d;padding:7px 16px;border-radius:8px;border:1px solid #2a3158;">← 目次へ戻る</a>
+  <h1>🕳️ Dilated Convolution（Atrous Convolution）</h1>
+  <div class="sub">フィルタの要素に「すき間（dilation）」を入れると、重みの数はそのままで受容野（見える範囲）が広がる。DeepLabが採用。</div>
+
+  <div class="panel">
+    <div class="row">
+      <div>
+        <canvas id="cv" width="360" height="360"></canvas>
+        <div class="legend">
+          <span class="dot" style="background:#ffd54f"></span>フィルタが実際に見る9点（3×3＝重み9個）
+          <span class="dot" style="background:#7c4dff"></span>受容野（カバー範囲）
+        </div>
+      </div>
+      <div class="side">
+        <div class="ctrl">
+          <label>dilation rate（すき間の広さ）</label>
+          <input id="d" type="range" min="1" max="4" step="1" value="1"><span class="v" id="dV">1</span>
+        </div>
+        <div class="metrics">
+          <div class="m">重みの数<br><span class="mv" id="weights">9</span><br><span style="font-size:11px;color:#9fa8da">3×3で固定</span></div>
+          <div class="m">受容野<br><span class="mv" id="rf">3×3</span><br><span style="font-size:11px;color:#9fa8da">カバー範囲</span></div>
+        </div>
+        <div class="desc" id="desc"></div>
+        <div class="desc" style="background:#16302c;border-left:4px solid #26a69a;color:#b2dfdb;font-size:13px;">
+          🔑 <b>ポイント</b>：rateを上げても<b>計算量（重み9個）は不変</b>なのに、<b>受容野が広がる</b>。少ない計算で広い範囲を見られる＝セグメンテーション（DeepLab）で活躍。
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+  const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+  const N=11, cell=cv.width/N; // 11×11 入力特徴マップ
+  function draw(){
+    const d=+document.getElementById('d').value;
+    document.getElementById('dV').textContent=d;
+    const rf=(3-1)*d+1; // 受容野の一辺
+    document.getElementById('rf').textContent=rf+'×'+rf;
+    ctx.clearRect(0,0,cv.width,cv.height);
+    // グリッド
+    ctx.strokeStyle='#1c2347';ctx.lineWidth=1;
+    for(let i=0;i<=N;i++){ctx.beginPath();ctx.moveTo(i*cell,0);ctx.lineTo(i*cell,cv.height);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(0,i*cell);ctx.lineTo(cv.width,i*cell);ctx.stroke();}
+    const c=Math.floor(N/2); // 中心セル index=5
+    // 受容野の枠
+    const half=(rf-1)/2;
+    if(c-half>=0&&c+half<N){
+      ctx.strokeStyle='#7c4dff';ctx.lineWidth=3;
+      ctx.strokeRect((c-half)*cell,(c-half)*cell,rf*cell,rf*cell);
+      ctx.fillStyle='rgba(124,77,255,.10)';
+      ctx.fillRect((c-half)*cell,(c-half)*cell,rf*cell,rf*cell);
+    }
+    // フィルタが実際に参照する9点（3×3、間隔d）
+    for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){
+      const gx=c+dx*d, gy=c+dy*d;
+      if(gx<0||gy<0||gx>=N||gy>=N)continue;
+      ctx.fillStyle=(dx===0&&dy===0)?'#ff9800':'#ffd54f';
+      ctx.fillRect(gx*cell+2,gy*cell+2,cell-4,cell-4);
+    }
+    let msg;
+    if(d===1)msg='rate=1＝<span class="hl">通常の畳み込み</span>。隣り合う3×3をそのまま見る（受容野3×3）。';
+    else msg='rate='+d+'＝フィルタの9点の<span class="hl">間隔をd広げた</span>。重みは9個のままで、受容野は<span class="hl">'+rf+'×'+rf+'</span>に拡大。';
+    document.getElementById('desc').innerHTML=msg;
+    document.getElementById('weights').textContent='9';
+  }
+  document.getElementById('d').addEventListener('input',draw);
+  draw();
+</script>
+</body>
+</html>
