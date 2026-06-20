@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BERT vs GPT ビジュアル</title>
+<style>
+  *{box-sizing:border-box;}
+  body{font-family:-apple-system,"Hiragino Sans","Yu Gothic",sans-serif;background:#0f1226;color:#e8eaf6;margin:0;padding:24px;line-height:1.6;}
+  h1{font-size:22px;margin:0 0 4px;} .sub{color:#9fa8da;font-size:14px;margin-bottom:18px;}
+  .panel{background:#1a1f3d;border-radius:14px;padding:20px;margin-bottom:18px;box-shadow:0 4px 16px rgba(0,0,0,.3);}
+  .row{display:flex;gap:30px;flex-wrap:wrap;align-items:flex-start;}
+  canvas{background:#0a0d1f;border-radius:10px;max-width:100%;}
+  .side{min-width:320px;flex:1;display:flex;flex-direction:column;gap:14px;}
+  .ctrl label{font-size:13px;color:#9fa8da;display:block;margin-bottom:6px;}
+  input[type=range]{width:100%;}
+  .modes{display:flex;gap:10px;}
+  .modes button{flex:1;background:#11142b;color:#9fa8da;border:1px solid #2a3158;border-radius:8px;padding:10px;font-size:14px;font-weight:bold;cursor:pointer;}
+  .modes button.on{background:#7c4dff;color:#fff;border-color:#7c4dff;}
+  .stage{font-size:18px;font-weight:bold;color:#ffd54f;}
+  .desc{background:#11142b;padding:14px;border-radius:8px;font-size:14px;}
+  .desc .hl{color:#ffd54f;font-weight:bold;}
+  .cmp{font-size:12.5px;color:#9fa8da;border-collapse:collapse;width:100%;}
+  .cmp td,.cmp th{border:1px solid #2a3158;padding:6px 8px;text-align:center;}
+  .legend{font-size:12px;color:#9fa8da;margin-top:8px;}
+  .dot{display:inline-block;width:11px;height:11px;border-radius:3px;vertical-align:middle;margin:0 3px 0 8px;}
+</style>
+</head>
+<body>
+  <a href="00_目次.html" style="display:inline-block;margin:0 0 16px;color:#9fa8da;text-decoration:none;font-size:14px;background:#1a1f3d;padding:7px 16px;border-radius:8px;border:1px solid #2a3158;">← 目次へ戻る</a>
+  <h1>🤖 BERT vs GPT — 双方向(読む) と 単方向(書く)</h1>
+  <div class="sub">同じTransformerでも、BERT=エンコーダ(双方向・理解)、GPT=デコーダ(単方向・生成)。各単語が「どこまで見えるか」と事前学習タスクの違いを動かして体感。</div>
+
+  <div class="panel">
+    <div class="row">
+      <div>
+        <canvas id="cv" width="460" height="210"></canvas>
+        <div class="legend" id="legend"></div>
+      </div>
+      <div class="side">
+        <div class="modes">
+          <button id="bBert" class="on">BERT（双方向・理解）</button>
+          <button id="bGpt">GPT（単方向・生成）</button>
+        </div>
+        <div class="ctrl">
+          <label id="slLabel">注目する位置</label>
+          <input id="sel" type="range" min="0" max="5" step="1" value="2">
+        </div>
+        <div class="stage" id="stage"></div>
+        <div class="desc" id="desc"></div>
+        <table class="cmp">
+          <tr><th></th><th>BERT</th><th>GPT</th></tr>
+          <tr><td>土台</td><td>エンコーダ</td><td>デコーダ</td></tr>
+          <tr><td>方向</td><td>双方向</td><td>単方向(左→右)</td></tr>
+          <tr><td>得意</td><td>理解(分類/QA)</td><td>生成(文章)</td></tr>
+          <tr><td>事前学習</td><td>MLM＋NSP</td><td>次単語予測</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+<script>
+  const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+  const W=cv.width,H=cv.height;
+  const toks=['私','は','猫','が','好き','。'];
+  const n=toks.length, BY=130, BW=58, BH=40;
+  const cx=i=>40+i*76;
+  let mode='bert';
+
+  function box(i,label,state){
+    const x=cx(i)-BW/2, y=BY;
+    let fill,bd,tc;
+    if(state==='target'){fill='rgba(38,166,154,.30)';bd='#26a69a';tc='#b2dfdb';}
+    else if(state==='focus'){fill='#7c4dff';bd='#7c4dff';tc='#fff';}
+    else if(state==='ref'){fill='rgba(255,213,79,.16)';bd='#ffd54f';tc='#fff';}
+    else {fill='rgba(120,130,170,.10)';bd='#3a4170';tc='#5c6bc0';}
+    ctx.fillStyle=fill;ctx.strokeStyle=bd;ctx.lineWidth=2;
+    roundRect(x,y,BW,BH,8);ctx.fill();ctx.stroke();
+    ctx.fillStyle=tc;ctx.font='bold 16px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(label,cx(i),BY+BH/2);
+    if(state==='locked'){ctx.font='13px sans-serif';ctx.fillText('🔒',cx(i),BY-10);}
+  }
+  function roundRect(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);
+    ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+  function arrow(from,to){
+    const x1=cx(from),x2=cx(to),y=BY-2;
+    const mx=(x1+x2)/2, dist=Math.abs(x2-x1), ah=20+dist*0.18;
+    ctx.strokeStyle='rgba(255,213,79,.55)';ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.moveTo(x1,y);ctx.quadraticCurveTo(mx,y-ah,x2,y);ctx.stroke();
+    // 矢じり（to側）
+    ctx.fillStyle='rgba(255,213,79,.8)';
+    ctx.beginPath();ctx.arc(x2,y,3,0,7);ctx.fill();
+  }
+
+  function draw(){
+    const sel=+document.getElementById('sel').value;
+    ctx.clearRect(0,0,W,H);
+    ctx.fillStyle='#5c6bc0';ctx.font='12px sans-serif';ctx.textAlign='left';ctx.textBaseline='alphabetic';
+    let legend='',stage='',desc='';
+    if(mode==='bert'){
+      // selを[MASK]に。全周囲→selへ矢印（双方向）
+      for(let j=0;j<n;j++){ if(j!==sel) arrow(j,sel); }
+      for(let j=0;j<n;j++){
+        if(j===sel) box(j,'[MASK]','target');
+        else box(j,toks[j],'ref');
+      }
+      stage='MLM：'+toks[sel]+' を隠して穴埋め';
+      desc='<span class="hl">双方向</span>：[MASK]の<span class="hl">前後すべて</span>の単語を見て、隠れた語を予測する（=<span class="hl">MLM</span>）。だから「読む・理解」に強い。'
+           +'<br>例：私 は <b>[MASK]</b> が 好き → 前後から「猫」を当てる。';
+      legend='<span class="dot" style="background:#26a69a"></span>[MASK](予測対象) <span class="dot" style="background:#ffd54f"></span>参照する語（前後両方）';
+    }else{
+      // GPT：sel まで読んで、sel+1 を予測。右側はロック
+      const pred=sel+1;
+      for(let j=0;j<=sel;j++) if(pred<n) arrow(j,pred);
+      for(let j=0;j<n;j++){
+        if(j===pred) box(j,'?','target');
+        else if(j<=sel) box(j,toks[j],'ref');
+        else box(j,toks[j],'locked');
+      }
+      if(pred<n){
+        stage='次単語予測：「'+toks.slice(0,sel+1).join('')+'」の次は？';
+        desc='<span class="hl">単方向</span>：<span class="hl">左の文脈だけ</span>を見て次の単語を予測する。右側は<span class="hl">🔒カンニング防止で隠す</span>。だから「書く・生成」に強い。'
+             +'<br>例：私 は 猫 → 次は「が」？';
+      }else{
+        stage='文末まで読了 → さらに生成を続ける';
+        desc='<span class="hl">単方向</span>：すべて左から読んだ。GPTはこの調子で<span class="hl">次々と単語を生成</span>していく。';
+      }
+      legend='<span class="dot" style="background:#26a69a"></span>?(予測対象=次の語) <span class="dot" style="background:#ffd54f"></span>参照する語(左のみ) <span class="dot" style="background:#5c6bc0"></span>🔒隠す(右)';
+    }
+    document.getElementById('legend').innerHTML=legend;
+    document.getElementById('stage').textContent=stage;
+    document.getElementById('desc').innerHTML=desc;
+    document.getElementById('slLabel').textContent=mode==='bert'?'[MASK]にする位置':'ここまで読んだ位置';
+  }
+  function setMode(m){mode=m;
+    document.getElementById('bBert').classList.toggle('on',m==='bert');
+    document.getElementById('bGpt').classList.toggle('on',m==='gpt');
+    const sl=document.getElementById('sel');
+    if(m==='gpt'&&+sl.value>n-2) sl.value=n-2;
+    draw();}
+  document.getElementById('bBert').onclick=()=>setMode('bert');
+  document.getElementById('bGpt').onclick=()=>setMode('gpt');
+  document.getElementById('sel').addEventListener('input',draw);
+  draw();
+</script>
+</body>
+</html>
