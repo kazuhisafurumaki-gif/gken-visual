@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>強化学習 グリッドワールド ビジュアル</title>
+<style>
+  *{box-sizing:border-box;}
+  body{font-family:-apple-system,"Hiragino Sans","Yu Gothic",sans-serif;background:#0f1226;color:#e8eaf6;margin:0;padding:24px;line-height:1.6;}
+  h1{font-size:22px;margin:0 0 4px;} .sub{color:#9fa8da;font-size:14px;margin-bottom:18px;}
+  .panel{background:#1a1f3d;border-radius:14px;padding:20px;margin-bottom:18px;box-shadow:0 4px 16px rgba(0,0,0,.3);}
+  .row{display:flex;gap:30px;flex-wrap:wrap;align-items:flex-start;}
+  canvas{background:#0a0d1f;border-radius:10px;}
+  .side{min-width:320px;flex:1;display:flex;flex-direction:column;gap:14px;}
+  .ctrl label{font-size:13px;color:#9fa8da;display:block;margin-bottom:6px;}
+  input[type=range]{width:100%;} .v{color:#fff;font-weight:bold;font-size:18px;}
+  .loop{background:#11142b;padding:12px;border-radius:8px;font-size:13px;text-align:center;color:#b39ddb;}
+  .desc{background:#11142b;padding:14px;border-radius:8px;font-size:14px;}
+  .desc .hl{color:#ffd54f;font-weight:bold;}
+  .legend{font-size:12px;color:#9fa8da;margin-top:8px;}
+  .dot{display:inline-block;width:11px;height:11px;border-radius:3px;vertical-align:middle;margin:0 3px 0 8px;}
+</style>
+</head>
+<body>
+  <a href="00_目次.html" style="display:inline-block;margin:0 0 16px;color:#9fa8da;text-decoration:none;font-size:14px;background:#1a1f3d;padding:7px 16px;border-radius:8px;border:1px solid #2a3158;">← 目次へ戻る</a>
+  <h1>🎮 強化学習 — グリッドワールドで「価値」が育つ</h1>
+  <div class="sub">エージェント🤖がゴール🏁を目指す。学習を進めると、報酬から「価値」がにじみ広がり、最適な行動（矢印）が決まっていく様子を体感。</div>
+
+  <div class="panel">
+    <div class="row">
+      <div>
+        <canvas id="cv" width="384" height="320"></canvas>
+        <div class="legend">
+          <span class="dot" style="background:#4caf50"></span>価値が高い(ゴールに近い)
+          <span class="dot" style="background:#e57373"></span>価値が低い(穴に近い)
+          ／ 矢印=最適な行動　<span style="color:#42a5f5">青線</span>=エージェントの経路
+        </div>
+      </div>
+      <div class="side">
+        <div class="loop">
+          🤖 エージェント →(行動)→ 🌍 環境 →(状態・報酬)→ 🤖<br>
+          <span style="color:#9fa8da">報酬を最大化する行動方針を試行錯誤で学ぶ</span>
+        </div>
+        <div class="ctrl">
+          <label>学習の回数（価値の更新ステップ）</label>
+          <input id="k" type="range" min="0" max="25" step="1" value="0"><span class="v" id="kV">0</span>
+        </div>
+        <div class="desc" id="desc"></div>
+        <div class="desc" style="background:#16302c;border-left:4px solid #26a69a;color:#b2dfdb;font-size:13px;">
+          🔑 各マスの数字＝<b>そのマスの価値</b>（ここから先どれだけ報酬が見込めるか）。ゴールの報酬が<b>隣のマスへ、さらに隣へ</b>と伝わっていく＝<b>価値ベース（DQN系）</b>の考え方。
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+  const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+  const MAP=["S.....",".##.P.","...#..",".#..#.","..#..G"];
+  const ROWS=MAP.length, COLS=MAP[0].length, CELL=64;
+  const GAMMA=0.9, STEP=-0.04;
+  const ch=(r,c)=>MAP[r][c];
+  const isWall=(r,c)=>ch(r,c)==='#';
+  const isGoal=(r,c)=>ch(r,c)==='G';
+  const isPit =(r,c)=>ch(r,c)==='P';
+  const isTerm=(r,c)=>isGoal(r,c)||isPit(r,c);
+  const rew=(r,c)=>isGoal(r,c)?1:isPit(r,c)?-1:STEP;
+  const ACTS=[[-1,0],[1,0],[0,-1],[0,1]]; // 上下左右
+  let start=[0,0];
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++)if(ch(r,c)==='S')start=[r,c];
+
+  function nextCell(r,c,a){const nr=r+ACTS[a][0],nc=c+ACTS[a][1];
+    if(nr<0||nc<0||nr>=ROWS||nc>=COLS||isWall(nr,nc))return [r,c];return [nr,nc];}
+
+  function computeV(k){
+    let V=Array.from({length:ROWS},()=>Array(COLS).fill(0));
+    for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++)if(isTerm(r,c))V[r][c]=rew(r,c);
+    for(let it=0;it<k;it++){
+      const nV=V.map(row=>row.slice());
+      for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
+        if(isWall(r,c)||isTerm(r,c))continue;
+        let best=-1e9;
+        for(let a=0;a<4;a++){const [nr,nc]=nextCell(r,c,a);best=Math.max(best,V[nr][nc]);}
+        nV[r][c]=rew(r,c)+GAMMA*best;
+      }
+      V=nV;
+    }
+    return V;
+  }
+  function bestAct(V,r,c){let ba=-1,best=-1e9;
+    for(let a=0;a<4;a++){const [nr,nc]=nextCell(r,c,a);if(V[nr][nc]>best){best=V[nr][nc];ba=a;}}return ba;}
+
+  function draw(){
+    const k=+document.getElementById('k').value;
+    document.getElementById('kV').textContent=k;
+    const V=computeV(k);
+    ctx.clearRect(0,0,cv.width,cv.height);
+    for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
+      const x=c*CELL,y=r*CELL;
+      if(isWall(r,c)){ctx.fillStyle='#1c2347';ctx.fillRect(x,y,CELL,CELL);ctx.strokeStyle='#0a0d1f';ctx.strokeRect(x,y,CELL,CELL);continue;}
+      const v=V[r][c];
+      let col;
+      if(v>=0)col='rgba(76,175,80,'+(0.10+Math.min(v,1)*0.55)+')';
+      else col='rgba(229,115,115,'+(0.10+Math.min(-v,1)*0.55)+')';
+      ctx.fillStyle=col;ctx.fillRect(x,y,CELL,CELL);
+      ctx.strokeStyle='#2a3158';ctx.strokeRect(x,y,CELL,CELL);
+      // 最適行動の矢印
+      if(!isTerm(r,c)&&k>0){const a=bestAct(V,r,c);const cx=x+CELL/2,cy=y+CELL/2;
+        const dir=[[0,-1],[0,1],[-1,0],[1,0]][a];
+        ctx.strokeStyle='rgba(255,255,255,.55)';ctx.lineWidth=2;
+        ctx.beginPath();ctx.moveTo(cx-dir[0]*12,cy-dir[1]*12);ctx.lineTo(cx+dir[0]*12,cy+dir[1]*12);ctx.stroke();
+        ctx.beginPath();ctx.arc(cx+dir[0]*12,cy+dir[1]*12,3,0,7);ctx.fillStyle='rgba(255,255,255,.7)';ctx.fill();}
+      // 価値の数値
+      ctx.fillStyle='#e8eaf6';ctx.font='11px sans-serif';ctx.textAlign='center';ctx.textBaseline='top';
+      ctx.fillText(v.toFixed(2),x+CELL/2,y+4);
+    }
+    // エージェント経路（greedy）
+    if(k>0){
+      let [r,c]=start;const path=[[r,c]];let steps=0;
+      while(!isTerm(r,c)&&steps<40){const a=bestAct(V,r,c);const [nr,nc]=nextCell(r,c,a);
+        if(nr===r&&nc===c)break;r=nr;c=nc;path.push([r,c]);steps++;}
+      ctx.strokeStyle='#42a5f5';ctx.lineWidth=4;ctx.beginPath();
+      path.forEach((p,i)=>{const px=p[1]*CELL+CELL/2,py=p[0]*CELL+CELL/2;i?ctx.lineTo(px,py):ctx.moveTo(px,py);});
+      ctx.stroke();
+    }
+    // アイコン
+    ctx.font='30px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+    for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
+      const cx=c*CELL+CELL/2,cy=r*CELL+CELL/2+6;
+      if(ch(r,c)==='S')ctx.fillText('🤖',cx,cy);
+      else if(isGoal(r,c))ctx.fillText('🏁',cx,cy);
+      else if(isPit(r,c))ctx.fillText('💀',cx,cy);
+    }
+    let d;
+    if(k===0)d='<span class="hl">学習前</span>：価値はすべて0。エージェントはどこへ行けば良いか分からない。';
+    else if(k<=4)d='<span class="hl">学習中</span>：ゴール🏁の報酬が<span class="hl">周囲のマスへにじみ出す</span>。まだ遠くは分からない。';
+    else if(k<=10)d='<span class="hl">価値が伝播中</span>：高価値の領域が広がり、矢印が<span class="hl">ゴールへの道</span>を指し始める。穴💀の周りは低価値。';
+    else d='<span class="hl">学習完了</span>：価値が全体に行き渡り、矢印が<span class="hl">最適な方針</span>に。🤖は青線をたどって最短でゴールへ（穴を回避）。';
+    document.getElementById('desc').innerHTML=d;
+  }
+  document.getElementById('k').addEventListener('input',draw);
+  draw();
+</script>
+</body>
+</html>
