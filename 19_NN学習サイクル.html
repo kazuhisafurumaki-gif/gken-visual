@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ニューラルネットの学習サイクル ビジュアル</title>
+<style>
+  *{box-sizing:border-box;}
+  body{font-family:-apple-system,"Hiragino Sans","Yu Gothic",sans-serif;background:#0f1226;color:#e8eaf6;margin:0;padding:24px;line-height:1.6;}
+  h1{font-size:22px;margin:0 0 4px;} .sub{color:#9fa8da;font-size:14px;margin-bottom:18px;}
+  .panel{background:#1a1f3d;border-radius:14px;padding:20px;margin-bottom:18px;box-shadow:0 4px 16px rgba(0,0,0,.3);}
+  .row{display:flex;gap:30px;flex-wrap:wrap;align-items:flex-start;}
+  canvas{background:#0a0d1f;border-radius:10px;display:block;}
+  .side{min-width:300px;flex:1;display:flex;flex-direction:column;gap:14px;}
+  .ctrl label{font-size:13px;color:#9fa8da;display:block;margin-bottom:6px;}
+  input[type=range]{width:100%;}
+  .steps{display:flex;gap:6px;flex-wrap:wrap;}
+  .chip{font-size:12px;padding:5px 9px;border-radius:14px;background:#11142b;color:#5c6bc0;border:1px solid #2a3158;}
+  .chip.on{background:#7c4dff;color:#fff;border-color:#7c4dff;}
+  .stage{font-size:18px;font-weight:bold;color:#ffd54f;}
+  .desc{background:#11142b;padding:14px;border-radius:8px;font-size:14px;}
+  .desc .hl{color:#ffd54f;font-weight:bold;}
+  button{background:#26a69a;color:#fff;border:none;border-radius:8px;padding:11px;font-size:14px;font-weight:bold;cursor:pointer;}
+  button:hover{background:#2bbbad;}
+  .stat{font-size:13px;color:#9fa8da;}
+  .stat b{color:#ffd54f;font-size:16px;}
+</style>
+</head>
+<body>
+  <a href="00_目次.html" style="display:inline-block;margin:0 0 16px;color:#9fa8da;text-decoration:none;font-size:14px;background:#1a1f3d;padding:7px 16px;border-radius:8px;border:1px solid #2a3158;">← 目次へ戻る</a>
+  <h1>🔄 ニューラルネットの学習サイクル</h1>
+  <div class="sub">①順伝播→②損失→③誤差逆伝播→④勾配降下。スライダーで4段階を確認し、「1エポック進める」で損失が下がる様子を体感。</div>
+
+  <div class="panel">
+    <div class="row">
+      <div>
+        <canvas id="cv" width="440" height="280"></canvas>
+        <canvas id="loss" width="440" height="130" style="margin-top:12px;"></canvas>
+      </div>
+      <div class="side">
+        <div class="steps">
+          <span class="chip" data-s="0">全体</span>
+          <span class="chip" data-s="1">①順伝播</span>
+          <span class="chip" data-s="2">②損失</span>
+          <span class="chip" data-s="3">③誤差逆伝播</span>
+          <span class="chip" data-s="4">④勾配降下</span>
+        </div>
+        <div class="ctrl">
+          <label>サイクルの段階</label>
+          <input id="step" type="range" min="0" max="4" step="1" value="0">
+        </div>
+        <div class="stage" id="stage"></div>
+        <div class="desc" id="desc"></div>
+        <button id="run">▶ 学習を1エポック進める</button>
+        <div class="stat">エポック：<b id="ep">0</b>　／　損失：<b id="lossv">1.00</b></div>
+        <div class="desc" style="background:#16302c;border-left:4px solid #26a69a;color:#b2dfdb;font-size:13px;">
+          🔑 <b>逆伝播で測って、勾配降下で直す</b>。このサイクルを繰り返すと損失（予測のズレ）が下がり、モデルが賢くなる。CNN/RNN/Transformerでも学習エンジンはこれで共通。
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+  const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+  const lc=document.getElementById('loss'),lx=lc.getContext('2d');
+  // ネットワーク構造
+  const L=[ [80,140,200], [50,110,170,230], [140] ]; // 各層のy座標
+  const X=[70,230,390];
+  function rnd(n){const x=Math.sin(n*12.9898)*43758.5453;return x-Math.floor(x);}
+  let losses=[1.0], epoch=0, step=0;
+
+  function nodePos(layer,i){return [X[layer], L[layer][i]];}
+  function edges(){ // [l, i, j]
+    const e=[];
+    for(let i=0;i<L[0].length;i++)for(let j=0;j<L[1].length;j++)e.push([0,i,j]);
+    for(let i=0;i<L[1].length;i++)e.push([1,i,0]);
+    return e;
+  }
+  const E=edges();
+
+  function drawNN(){
+    ctx.clearRect(0,0,cv.width,cv.height);
+    // エッジ
+    E.forEach((e,idx)=>{
+      const [l,i,j]=e;
+      const [x1,y1]=nodePos(l,i), [x2,y2]=nodePos(l+1,j);
+      let col='rgba(90,107,192,.35)', w=1.5;
+      if(step===1){col='rgba(255,213,79,.7)';w=2;}        // 順伝播=黄
+      else if(step===3){col='rgba(255,138,101,.75)';w=2;} // 逆伝播=オレンジ
+      else if(step===4){col='rgba(38,166,154,.8)';w=1+rnd(idx)*3;} // 更新=太さ変化
+      ctx.strokeStyle=col;ctx.lineWidth=w;
+      ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
+      // 方向の矢じり
+      if(step===1||step===3){
+        const t=0.6, ax=x1+(x2-x1)*t, ay=y1+(y2-y1)*t;
+        const dir=step===1?1:-1;
+        ctx.fillStyle=col;ctx.beginPath();
+        const dx=(x2-x1), dy=(y2-y1), len=Math.hypot(dx,dy);
+        const ux=dx/len*dir, uy=dy/len*dir;
+        ctx.moveTo(ax+ux*6,ay+uy*6);
+        ctx.lineTo(ax-uy*4,ay+ux*4);ctx.lineTo(ax+uy*4,ay-ux*4);ctx.fill();
+      }
+    });
+    // ノード
+    const labels=[['x₁','x₂','x₃'],['','','',''],['ŷ']];
+    for(let l=0;l<L.length;l++)for(let i=0;i<L[l].length;i++){
+      const [x,y]=nodePos(l,i);
+      let fill='#1a1f3d', bd='#5c6bc0';
+      if(step===1){fill='#2a2f55';bd='#ffd54f';}
+      if(step===2&&l===2){bd='#ff6e6e';fill='#3a2030';}
+      ctx.fillStyle=fill;ctx.strokeStyle=bd;ctx.lineWidth=2.5;
+      ctx.beginPath();ctx.arc(x,y,16,0,7);ctx.fill();ctx.stroke();
+      ctx.fillStyle='#e8eaf6';ctx.font='13px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.fillText(labels[l][i],x,y);
+    }
+    // 層ラベル
+    ctx.fillStyle='#5c6bc0';ctx.font='12px sans-serif';ctx.textAlign='center';
+    ctx.fillText('入力層',X[0],265);ctx.fillText('中間層',X[1],265);ctx.fillText('出力層',X[2],265);
+    // 損失の表示（step2）
+    if(step===2){
+      ctx.fillStyle='#ff6e6e';ctx.font='bold 13px sans-serif';ctx.textAlign='left';
+      ctx.fillText('予測 ŷ=0.7',X[2]+26,120);
+      ctx.fillStyle='#4caf50';ctx.fillText('正解 y=1.0',X[2]+26,140);
+      ctx.fillStyle='#ffd54f';ctx.fillText('ズレ=0.3',X[2]+26,160);
+    }
+    // 方向の帯
+    if(step===1){banner('入力 → 出力（予測を計算）','#ffd54f');}
+    if(step===3){banner('出力 → 入力（勾配を計算）','#ff8a65');}
+    if(step===4){banner('重みを更新（エッジが変化）','#26a69a');}
+  }
+  function banner(text,col){ctx.fillStyle=col;ctx.font='bold 13px sans-serif';ctx.textAlign='center';ctx.fillText(text,cv.width/2,24);}
+
+  function drawLoss(){
+    lx.clearRect(0,0,lc.width,lc.height);
+    const pad=34, W=lc.width, H=lc.height;
+    lx.strokeStyle='#2a3158';lx.lineWidth=1;
+    lx.beginPath();lx.moveTo(pad,8);lx.lineTo(pad,H-22);lx.lineTo(W-10,H-22);lx.stroke();
+    lx.fillStyle='#5c6bc0';lx.font='11px sans-serif';lx.textAlign='right';
+    lx.fillText('損失',pad-6,16);lx.textAlign='center';lx.fillText('エポック',W/2,H-6);
+    const n=Math.max(losses.length,2);
+    const px=i=>pad+(i/(Math.max(n-1,8)))*(W-pad-16);
+    const py=v=>8+(1-v)*(H-30);
+    lx.strokeStyle='#42a5f5';lx.lineWidth=2.5;lx.beginPath();
+    losses.forEach((v,i)=>{i?lx.lineTo(px(i),py(v)):lx.moveTo(px(i),py(v));});
+    lx.stroke();
+    lx.fillStyle='#42a5f5';
+    losses.forEach((v,i)=>{lx.beginPath();lx.arc(px(i),py(v),3,0,7);lx.fill();});
+  }
+
+  const ST=[
+    {s:'学習サイクル全体',d:'入力データを使い<span class="hl">①予測→②採点→③反省→④修正</span>を繰り返して重みを良くしていく。スライダーで各段階を確認しよう。'},
+    {s:'① 順伝播（予測）',d:'入力(x₁,x₂,x₃)を<span class="hl">右へ流して予測ŷを計算</span>。各ニューロンで「重み×入力の和→活性化関数」。'},
+    {s:'② 損失（採点）',d:'予測ŷと<span class="hl">正解yのズレ(損失)</span>を損失関数で計算。このズレを小さくしたい。'},
+    {s:'③ 誤差逆伝播（反省）',d:'ズレを<span class="hl">右から左へ遡り</span>、各重みの<span class="hl">勾配(直すべき量)</span>を計算する＝誤差逆伝播法。'},
+    {s:'④ 勾配降下（修正）',d:'勾配を使って<span class="hl">重みを更新</span>＝勾配降下法。「1エポック進める」を押すと損失が下がる。'},
+  ];
+
+  function render(){
+    drawNN();drawLoss();
+    document.getElementById('stage').textContent=ST[step].s;
+    document.getElementById('desc').innerHTML=ST[step].d;
+    document.querySelectorAll('.chip').forEach(c=>c.classList.toggle('on',+c.dataset.s===step));
+    document.getElementById('ep').textContent=epoch;
+    document.getElementById('lossv').textContent=losses[losses.length-1].toFixed(2);
+  }
+  document.getElementById('step').addEventListener('input',e=>{step=+e.target.value;render();});
+  document.querySelectorAll('.chip').forEach(c=>c.onclick=()=>{step=+c.dataset.s;document.getElementById('step').value=step;render();});
+  document.getElementById('run').onclick=()=>{
+    epoch++;
+    const last=losses[losses.length-1];
+    losses.push(Math.max(0.04, last*0.78+0.01));
+    step=4;document.getElementById('step').value=4;render();
+  };
+  render();
+</script>
+</body>
+</html>
