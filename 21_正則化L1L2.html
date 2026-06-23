@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>正則化 L1/L2 ビジュアル</title>
+<style>
+  *{box-sizing:border-box;}
+  body{font-family:-apple-system,"Hiragino Sans","Yu Gothic",sans-serif;background:#0f1226;color:#e8eaf6;margin:0;padding:24px;line-height:1.6;}
+  h1{font-size:22px;margin:0 0 4px;} .sub{color:#9fa8da;font-size:14px;margin-bottom:18px;}
+  .panel{background:#1a1f3d;border-radius:14px;padding:20px;margin-bottom:18px;box-shadow:0 4px 16px rgba(0,0,0,.3);}
+  .row{display:flex;gap:30px;flex-wrap:wrap;align-items:flex-start;}
+  canvas{background:#0a0d1f;border-radius:10px;}
+  .side{min-width:300px;flex:1;display:flex;flex-direction:column;gap:14px;}
+  .ctrl label{font-size:13px;color:#9fa8da;display:block;margin-bottom:6px;}
+  input[type=range]{width:100%;} .v{color:#fff;font-weight:bold;font-size:18px;}
+  .modes{display:flex;gap:10px;}
+  .modes button{flex:1;background:#11142b;color:#9fa8da;border:1px solid #2a3158;border-radius:8px;padding:10px;font-size:14px;font-weight:bold;cursor:pointer;}
+  .modes button.on{background:#7c4dff;color:#fff;border-color:#7c4dff;}
+  .desc{background:#11142b;padding:14px;border-radius:8px;font-size:14px;}
+  .desc .hl{color:#ffd54f;font-weight:bold;}
+  .stat{font-size:14px;color:#9fa8da;}
+  .stat b{color:#ffd54f;font-size:18px;}
+</style>
+</head>
+<body>
+  <a href="00_目次.html" style="display:inline-block;margin:0 0 16px;color:#9fa8da;text-decoration:none;font-size:14px;background:#1a1f3d;padding:7px 16px;border-radius:8px;border:1px solid #2a3158;">← 目次へ戻る</a>
+  <h1>🛡️ 正則化 L1（ラッソ） vs L2（リッジ）</h1>
+  <div class="sub">家賃予測モデルの特徴ごとの重み。正則化の強さ(λ)を上げると重みがどうなるか。L1は0にして消す（特徴選択）、L2は小さくするだけ。</div>
+
+  <div class="panel">
+    <div class="row">
+      <div>
+        <canvas id="cv" width="420" height="330"></canvas>
+        <div class="stat" style="margin-top:8px;">残っている特徴：<b id="alive">8</b> / 8</div>
+      </div>
+      <div class="side">
+        <div class="modes">
+          <button id="bL1" class="on">L1（ラッソ）</button>
+          <button id="bL2">L2（リッジ）</button>
+        </div>
+        <div class="ctrl">
+          <label>正則化の強さ λ（大きいほど重みを抑える）</label>
+          <input id="lam" type="range" min="0" max="1" step="0.02" value="0"><span class="v" id="lamV">0.00</span>
+        </div>
+        <div class="desc" id="desc"></div>
+        <div class="desc" style="background:#16302c;border-left:4px solid #26a69a;color:#b2dfdb;font-size:13px;">
+          🔑 <b>L1（ラッソ）</b>＝重みを<b>ピッタリ0</b>にして不要な特徴を消す＝<b>特徴選択</b>。<br>🔑 <b>L2（リッジ）</b>＝重みを<b>全体的に小さく</b>（0にはしない）＝過学習の汎用対策。
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+  const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+  const W=cv.width,H=cv.height;
+  // 家賃予測の特徴と初期重み（効くもの・効かないもの混在）
+  const feats=[
+    {name:'広さ',      w:0.92},
+    {name:'駅距離',    w:-0.74},
+    {name:'部屋数',    w:0.55},
+    {name:'築年数',    w:-0.40},
+    {name:'階数',      w:0.28},
+    {name:'コンビニ',  w:0.20},
+    {name:'方角',      w:0.11},
+    {name:'無関係な値',w:0.05},
+  ];
+  let mode='L1';
+
+  function adjust(w,lam){
+    if(mode==='L1'){const t=lam*0.95; return Math.sign(w)*Math.max(0,Math.abs(w)-t);} // soft-threshold→0になる
+    else {return w/(1+lam*4);} // 縮むが0にならない
+  }
+
+  function draw(){
+    const lam=+document.getElementById('lam').value;
+    document.getElementById('lamV').textContent=lam.toFixed(2);
+    ctx.clearRect(0,0,W,H);
+    const x0=130, midGuard=0; // ラベル幅
+    const zeroX=x0, scale=150; // w=±1 → ±150px
+    const rowH=34, top=20;
+    // 0軸
+    ctx.strokeStyle='#2a3158';ctx.beginPath();ctx.moveTo(zeroX,10);ctx.lineTo(zeroX,top+feats.length*rowH);ctx.stroke();
+    ctx.fillStyle='#5c6bc0';ctx.font='10px sans-serif';ctx.textAlign='center';ctx.fillText('0',zeroX,top+feats.length*rowH+12);
+    let alive=0;
+    feats.forEach((f,i)=>{
+      const w=adjust(f.w,lam);
+      const y=top+i*rowH+rowH/2;
+      const on=Math.abs(w)>0.012;
+      if(on)alive++;
+      // ラベル
+      ctx.fillStyle=on?'#e8eaf6':'#3a4170';ctx.font='13px sans-serif';ctx.textAlign='right';
+      ctx.fillText(f.name,x0-12,y+4);
+      // バー
+      const bw=w*scale;
+      ctx.fillStyle=on?(w>=0?'#42a5f5':'#ff8a65'):'rgba(120,130,170,.25)';
+      ctx.fillRect(Math.min(zeroX,zeroX+bw), y-9, Math.abs(bw)||(on?0:0), 18);
+      // 値 or 「消えた」
+      ctx.textAlign='left';ctx.font='11px sans-serif';
+      if(on){ctx.fillStyle='#9fa8da';ctx.fillText(w.toFixed(2), zeroX+bw+(w>=0?4:-34), y+4);}
+      else {ctx.fillStyle='#5c6bc0';ctx.fillText('✕ 消えた(0)', zeroX+6, y+4);}
+    });
+    document.getElementById('alive').textContent=alive;
+    const d=document.getElementById('desc');
+    if(mode==='L1'){
+      d.innerHTML=lam<0.02?'初期状態。8つの特徴すべてに重みがある。λを上げてみよう。'
+        :'<span class="hl">L1（ラッソ）</span>：λを上げると、<span class="hl">小さい重みから順にピッタリ0</span>になり特徴が消える。効く特徴（広さ・駅距離）だけ残る＝<span class="hl">特徴選択</span>。';
+    }else{
+      d.innerHTML=lam<0.02?'初期状態。λを上げてみよう。'
+        :'<span class="hl">L2（リッジ）</span>：λを上げると<span class="hl">全部の重みが小さく</span>なるが、<span class="hl">0にはならない</span>（消えない）。全体を穏やかに抑える。';
+    }
+  }
+  function setMode(m){mode=m;
+    document.getElementById('bL1').classList.toggle('on',m==='L1');
+    document.getElementById('bL2').classList.toggle('on',m==='L2');draw();}
+  document.getElementById('bL1').onclick=()=>setMode('L1');
+  document.getElementById('bL2').onclick=()=>setMode('L2');
+  document.getElementById('lam').addEventListener('input',draw);
+  draw();
+</script>
+</body>
+</html>
