@@ -32,7 +32,10 @@
     <div class="row">
       <div>
         <canvas id="cv" width="420" height="330"></canvas>
-        <div class="stat" style="margin-top:8px;">残っている特徴：<b id="alive">8</b> / 8</div>
+        <div class="stat" style="margin-top:8px;font-size:12px;">
+          <span style="color:#42a5f5">■</span>家賃を上げる(+)　<span style="color:#ff8a65">■</span>下げる(−)　／　バーの長さ＝影響の強さ
+        </div>
+        <div class="stat" style="margin-top:6px;">残っている特徴：<b id="alive">8</b> / 8</div>
       </div>
       <div class="side">
         <div class="modes">
@@ -76,29 +79,26 @@
     const lam=+document.getElementById('lam').value;
     document.getElementById('lamV').textContent=lam.toFixed(2);
     ctx.clearRect(0,0,W,H);
-    const x0=130, midGuard=0; // ラベル幅
-    const zeroX=x0, scale=150; // w=±1 → ±150px
-    const rowH=34, top=20;
-    // 0軸
-    ctx.strokeStyle='#2a3158';ctx.beginPath();ctx.moveTo(zeroX,10);ctx.lineTo(zeroX,top+feats.length*rowH);ctx.stroke();
-    ctx.fillStyle='#5c6bc0';ctx.font='10px sans-serif';ctx.textAlign='center';ctx.fillText('0',zeroX,top+feats.length*rowH+12);
+    const nameX=8, barX=104, scale=290, rowH=34, top=24;
+    // バー開始の縦線
+    ctx.strokeStyle='#2a3158';ctx.beginPath();ctx.moveTo(barX,14);ctx.lineTo(barX,top+feats.length*rowH-8);ctx.stroke();
     let alive=0;
     feats.forEach((f,i)=>{
       const w=adjust(f.w,lam);
       const y=top+i*rowH+rowH/2;
       const on=Math.abs(w)>0.012;
       if(on)alive++;
-      // ラベル
-      ctx.fillStyle=on?'#e8eaf6':'#3a4170';ctx.font='13px sans-serif';ctx.textAlign='right';
-      ctx.fillText(f.name,x0-12,y+4);
-      // バー
-      const bw=w*scale;
-      ctx.fillStyle=on?(w>=0?'#42a5f5':'#ff8a65'):'rgba(120,130,170,.25)';
-      ctx.fillRect(Math.min(zeroX,zeroX+bw), y-9, Math.abs(bw)||(on?0:0), 18);
+      // 特徴名（左端固定）
+      ctx.fillStyle=on?'#e8eaf6':'#3a4170';ctx.font='13px sans-serif';ctx.textAlign='left';
+      ctx.fillText(f.name,nameX,y+4);
+      // バー（右向き・長さ＝|重み|・色＝正負）
+      const bw=Math.abs(w)*scale;
+      ctx.fillStyle=on?(w>=0?'#42a5f5':'#ff8a65'):'rgba(120,130,170,.2)';
+      ctx.fillRect(barX,y-9,bw,18);
       // 値 or 「消えた」
-      ctx.textAlign='left';ctx.font='11px sans-serif';
-      if(on){ctx.fillStyle='#9fa8da';ctx.fillText(w.toFixed(2), zeroX+bw+(w>=0?4:-34), y+4);}
-      else {ctx.fillStyle='#5c6bc0';ctx.fillText('✕ 消えた(0)', zeroX+6, y+4);}
+      ctx.textAlign='left';ctx.font='12px sans-serif';
+      if(on){ctx.fillStyle='#9fa8da';ctx.fillText((w>=0?'+':'')+w.toFixed(2),barX+bw+6,y+4);}
+      else {ctx.fillStyle='#5c6bc0';ctx.fillText('✕ 消えた(0)',barX+6,y+4);}
     });
     document.getElementById('alive').textContent=alive;
     const d=document.getElementById('desc');
