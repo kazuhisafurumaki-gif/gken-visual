@@ -1,5 +1,5 @@
 // G検定ビジュアル教材 Service Worker（オフライン対応）
-const CACHE = 'gken-visual-v13';
+const CACHE = 'gken-visual-v14';
 const ASSETS = [
   './',
   './00_目次.html',
