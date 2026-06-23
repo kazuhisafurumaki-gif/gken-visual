@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AIブーム年表 ビジュアル</title>
+<style>
+  *{box-sizing:border-box;}
+  body{font-family:-apple-system,"Hiragino Sans","Yu Gothic",sans-serif;background:#0f1226;color:#e8eaf6;margin:0;padding:24px;line-height:1.6;}
+  h1{font-size:22px;margin:0 0 4px;} .sub{color:#9fa8da;font-size:14px;margin-bottom:18px;}
+  .panel{background:#1a1f3d;border-radius:14px;padding:20px;margin-bottom:18px;box-shadow:0 4px 16px rgba(0,0,0,.3);}
+  canvas{background:#0a0d1f;border-radius:10px;max-width:100%;}
+  .tabs{display:flex;gap:8px;flex-wrap:wrap;margin:16px 0;}
+  .tab{font-size:13px;padding:8px 14px;border-radius:18px;background:#11142b;color:#9fa8da;border:1px solid #2a3158;cursor:pointer;font-weight:bold;}
+  .tab.on{color:#fff;}
+  .detail{background:#11142b;padding:16px;border-radius:10px;}
+  .detail h2{font-size:18px;margin:0 0 4px;}
+  .theme{font-size:13px;color:#9fa8da;margin-bottom:12px;}
+  .items{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;}
+  .item{font-size:13px;background:#1a1f3d;border-radius:8px;padding:6px 10px;border-left:3px solid #5c6bc0;}
+  .winter{font-size:13px;color:#90caf9;background:#0d1f33;border-radius:8px;padding:10px 12px;}
+  .hl{color:#ffd54f;font-weight:bold;}
+</style>
+</head>
+<body>
+  <a href="00_目次.html" style="display:inline-block;margin:0 0 16px;color:#9fa8da;text-decoration:none;font-size:14px;background:#1a1f3d;padding:7px 16px;border-radius:8px;border:1px solid #2a3158;">← 目次へ戻る</a>
+  <h1>🕰 AIブーム年表 — 探索 → 知識 → 学習 → 生成</h1>
+  <div class="sub">タブでブームを選ぶと、年表のその時代がハイライトされ、G検定頻出の手法が表示される。主役の乗り換えと「冬の時代」を体感。</div>
+
+  <div class="panel">
+    <canvas id="cv" width="660" height="170"></canvas>
+    <div class="tabs">
+      <span class="tab on" data-k="all" style="border-color:#7c4dff;background:#7c4dff;color:#fff;">全体</span>
+      <span class="tab" data-k="1">第1次</span>
+      <span class="tab" data-k="2">第2次</span>
+      <span class="tab" data-k="3">第3次</span>
+      <span class="tab" data-k="4">第4次?</span>
+    </div>
+    <div class="detail" id="detail"></div>
+  </div>
+
+<script>
+  const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+  const W=cv.width,H=cv.height, M=44, Y0=1950, Y1=2025;
+  const BASE=88, BH=26;
+  const xOf=y=>M+(y-Y0)/(Y1-Y0)*(W-2*M);
+
+  const BOOMS={
+    '1':{name:'第1次AIブーム',range:[1956,1974],color:'#42a5f5',theme:'主役：探索・推論',
+      pts:[[1950,'チューリングテスト'],[1956,'ダートマス会議'],[1958,'パーセプトロン'],[1966,'ELIZA']],
+      items:['チューリングテスト','ダートマス会議(マッカーシー)','探索・推論(幅優先/深さ優先)','Mini-Max法/αβ法/モンテカルロ法','STRIPS / SHRDLU','ハノイの塔・トイプロブレム','パーセプトロン(ローゼンブラット)','ELIZA・イライザ効果','ミンスキーの指摘(XOR)'],
+      winter:'❄️ 冬①：トイ・プロブレム（簡単な問題）しか解けないと判明'},
+    '2':{name:'第2次AIブーム',range:[1980,1987],color:'#ffca28',theme:'主役：知識',
+      pts:[[1980,'エキスパートシステム'],[1982,'第五世代'],[1986,'誤差逆伝播法']],
+      items:['エキスパートシステム','MYCIN(マイシン・医療)','DENDRAL(化学)','知識ベース・知識表現','意味ネットワーク','オントロジー・Cyc','第五世代コンピュータ','誤差逆伝播法(1986・NN復活)'],
+      winter:'❄️ 冬②：知識獲得のボトルネック（人が知識を入れ続けられない）'},
+    '3':{name:'第3次AIブーム',range:[2006,2025],color:'#66bb6a',theme:'主役：機械学習・ディープラーニング',
+      pts:[[2012,'AlexNet'],[2015,'ResNet'],[2016,'AlphaGo'],[2017,'Transformer'],[2018,'BERT/GPT']],
+      items:['ビッグデータ・機械学習','ILSVRC・AlexNet(2012・ヒントン)','CNN / RNN / LSTM','GAN / GoogLeNet / VGG','ResNet(2015)','AlphaGo(2016)','Transformer(2017)','BERT / GPT(2018)','【土台】誤差逆伝播＋勾配降下/Adam'],
+      winter:null},
+    '4':{name:'第4次AIブーム?',range:[2022,2025],color:'#ec407a',theme:'主役：生成AI（※定説ではない）',
+      pts:[[2022,'ChatGPT']],
+      items:['生成AI(Generative AI)','ChatGPT・大規模言語モデル(LLM)','RLHF','拡散モデル','DALL-E / CLIP','※第3次の新局面とする見方も'],
+      winter:null},
+  };
+  const WINTERS=[[1974,1980],[1987,1995]];
+  let sel='all';
+
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    // 軸
+    ctx.strokeStyle='#2a3158';ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(M,BASE+BH+20);ctx.lineTo(W-M+10,BASE+BH+20);ctx.stroke();
+    ctx.fillStyle='#5c6bc0';ctx.font='11px sans-serif';ctx.textAlign='center';
+    [1950,1970,1990,2010,2025].forEach(y=>{ctx.fillText(y,xOf(y),BASE+BH+34);
+      ctx.strokeStyle='#1c2347';ctx.beginPath();ctx.moveTo(xOf(y),BASE);ctx.lineTo(xOf(y),BASE+BH+18);ctx.stroke();});
+    // 冬の時代
+    WINTERS.forEach(([a,b])=>{ctx.fillStyle='rgba(120,130,170,.18)';
+      ctx.fillRect(xOf(a),BASE,xOf(b)-xOf(a),BH);
+      ctx.fillStyle='#5c6bc0';ctx.font='10px sans-serif';ctx.fillText('❄️冬',(xOf(a)+xOf(b))/2,BASE+BH/2+3);});
+    // ブーム帯
+    Object.entries(BOOMS).forEach(([k,b])=>{
+      const dim=(sel!=='all'&&sel!==k);
+      ctx.globalAlpha=dim?0.22:1;
+      ctx.fillStyle=b.color;
+      const x=xOf(b.range[0]), w=xOf(b.range[1])-x;
+      ctx.fillRect(x, k==='4'?BASE-12:BASE, w, k==='4'?12:BH);
+      ctx.globalAlpha=1;
+      if(!dim){ctx.fillStyle='#0a0d1f';ctx.font='bold 11px sans-serif';ctx.textAlign='center';
+        if(k!=='4')ctx.fillText('第'+k+'次',x+w/2,BASE+BH/2+4);}
+    });
+    // 手法の点＋ラベル（選択ブーム or 全体は代表）
+    const showPts=[];
+    if(sel==='all'){Object.values(BOOMS).forEach(b=>b.pts.forEach((p,i)=>{if(i===0||p[1]==='AlexNet'||p[1]==='ChatGPT')showPts.push([...p,b.color]);}));}
+    else{BOOMS[sel].pts.forEach(p=>showPts.push([...p,BOOMS[sel].color]));}
+    showPts.forEach((p,i)=>{
+      const x=xOf(p[0]), up=i%2===0;
+      const y=up?BASE-18:BASE+BH+2;
+      ctx.fillStyle=p[2];ctx.beginPath();ctx.arc(x,BASE+BH/2,3,0,7);ctx.fill();
+      ctx.strokeStyle=p[2];ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(x,BASE+BH/2);ctx.lineTo(x,y+(up?10:0));ctx.stroke();
+      ctx.fillStyle='#e8eaf6';ctx.font='10px sans-serif';ctx.textAlign='center';
+      ctx.fillText(p[0]+' '+p[1],x,up?y:y+9);
+    });
+  }
+
+  function detail(){
+    const d=document.getElementById('detail');
+    if(sel==='all'){
+      d.innerHTML='<h2>主役の乗り換え：探索 → 知識 → 学習 → 生成</h2>'+
+        '<div class="theme">タブで各ブームを選ぶと詳細が出ます。</div>'+
+        '<div class="winter">🔑 <b>冬の原因が次の主役を生んだ</b>：トイ問題の壁→「知識を入れる」(第2次)／知識獲得の壁→「データから学ぶ」(第3次)。<br>勾配降下法＋誤差逆伝播は<b>1986(第2次)の土台</b>で、第3次にビッグデータ＋GPUで開花（Adam等の改良も第3次）。</div>';
+      return;
+    }
+    const b=BOOMS[sel];
+    d.innerHTML='<h2 style="color:'+b.color+'">'+b.name+'（'+b.range[0]+'〜）</h2>'+
+      '<div class="theme">'+b.theme+'</div>'+
+      '<div class="items">'+b.items.map(i=>'<span class="item" style="border-left-color:'+b.color+'">'+i+'</span>').join('')+'</div>'+
+      (b.winter?'<div class="winter">'+b.winter+'</div>':'<div class="winter">現在も継続中 🚀</div>');
+  }
+  function render(){draw();detail();
+    document.querySelectorAll('.tab').forEach(t=>{
+      const on=t.dataset.k===sel;t.classList.toggle('on',on);
+      if(t.dataset.k!=='all'){t.style.background=on?(BOOMS[t.dataset.k]?BOOMS[t.dataset.k].color:'#7c4dff'):'#11142b';
+        t.style.color=on?'#0a0d1f':'#9fa8da';t.style.borderColor=on?(BOOMS[t.dataset.k]?BOOMS[t.dataset.k].color:'#7c4dff'):'#2a3158';}
+    });
+  }
+  document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{sel=t.dataset.k;render();});
+  render();
+</script>
+</body>
+</html>
