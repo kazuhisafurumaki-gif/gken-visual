@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>セグメンテーション3種 ビジュアル</title>
+<style>
+  *{box-sizing:border-box;}
+  body{font-family:-apple-system,"Hiragino Sans","Yu Gothic",sans-serif;background:#0f1226;color:#e8eaf6;margin:0;padding:24px;line-height:1.6;}
+  h1{font-size:22px;margin:0 0 4px;} .sub{color:#9fa8da;font-size:14px;margin-bottom:18px;}
+  .panel{background:#1a1f3d;border-radius:14px;padding:20px;margin-bottom:18px;box-shadow:0 4px 16px rgba(0,0,0,.3);}
+  .row{display:flex;gap:30px;flex-wrap:wrap;align-items:flex-start;}
+  canvas{background:#0a0d1f;border-radius:10px;}
+  .side{min-width:300px;flex:1;display:flex;flex-direction:column;gap:14px;}
+  .modes{display:flex;flex-direction:column;gap:8px;}
+  .modes button{background:#11142b;color:#9fa8da;border:1px solid #2a3158;border-radius:8px;padding:11px;font-size:14px;font-weight:bold;cursor:pointer;text-align:left;}
+  .modes button.on{background:#7c4dff;color:#fff;border-color:#7c4dff;}
+  .desc{background:#11142b;padding:14px;border-radius:8px;font-size:14px;}
+  .desc .hl{color:#ffd54f;font-weight:bold;}
+  table{width:100%;border-collapse:collapse;font-size:13px;margin-top:4px;}
+  th,td{border:1px solid #2a3158;padding:7px 9px;text-align:center;}
+  th{color:#9fa8da;background:#11142b;} td.yes{color:#69f0ae;font-weight:bold;} td.no{color:#ff8a80;}
+</style>
+</head>
+<body>
+  <a href="00_目次.html" style="display:inline-block;margin:0 0 16px;color:#9fa8da;text-decoration:none;font-size:14px;background:#1a1f3d;padding:7px 16px;border-radius:8px;border:1px solid #2a3158;">← 目次へ戻る</a>
+  <h1>🎨 セグメンテーション3種（セマンティック / インスタンス / パノプティック）</h1>
+  <div class="sub">同じ風景（空・道路・車3台・人2人）を、3つの方式で塗り分け。「全画素を塗るか？」「同種の物体を1個ずつ区別するか？」の2軸で違いが決まる。</div>
+
+  <div class="panel">
+    <div class="row">
+      <div>
+        <canvas id="cv" width="440" height="300"></canvas>
+        <div id="caption" style="margin-top:8px;font-size:12.5px;color:#9fa8da;"></div>
+      </div>
+      <div class="side">
+        <div class="modes">
+          <button id="bSem" class="on">① セマンティック（種類だけ）</button>
+          <button id="bIns">② インスタンス（1個ずつ番号）</button>
+          <button id="bPan">③ パノプティック（全部入り）</button>
+        </div>
+        <div class="desc" id="desc"></div>
+        <table>
+          <tr><th></th><th>背景(空/道)<br>も塗る？</th><th>物体を1個ずつ<br>区別(ID)？</th></tr>
+          <tr><td>セマンティック</td><td class="yes" id="t1a">○</td><td class="no" id="t1b">✕</td></tr>
+          <tr><td>インスタンス</td><td class="no" id="t2a">✕</td><td class="yes" id="t2b">○</td></tr>
+          <tr><td>パノプティック</td><td class="yes" id="t3a">○</td><td class="yes" id="t3b">○</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel" style="font-size:13.5px;">
+    <b style="color:#ffd54f;">📝 試験のツボ（問90）</b><br>
+    「<b>すべての画素を分類</b>し、さらに<b>物体ごとにID付け</b>」と来たら、ID付け（個体識別）が主役 → 教材では<b>インスタンス</b>を答えにする。<br>
+    厳密には「背景も含め全画素 ＋ 物体は個体識別」を両立する最上位互換が<b>パノプティック</b>。<br>
+    合言葉：<b>セマンティック＝種類だけ／インスタンス＝1個ずつ番号／パノプティック＝その全部入り（背景も個体も）。</b>
+  </div>
+
+<script>
+  const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+  let mode='Sem';
+  // 物体定義（種類と位置）
+  const cars=[ {x:40,y:200,w:80,h:42}, {x:175,y:205,w:80,h:42}, {x:320,y:200,w:80,h:42} ];
+  const people=[ {x:150,y:150,w:22,h:60}, {x:285,y:148,w:22,h:62} ];
+  // 色
+  const C={ sky:'#3949ab', road:'#455a64', carClass:'#26a69a', personClass:'#ec407a',
+            carIDs:['#ffca28','#ff7043','#ab47bc'], personIDs:['#29b6f6','#9ccc65'],
+            gray:'#1c2440', grayStroke:'#2a3158' };
+
+  function box(o,fill,stroke,label){
+    ctx.fillStyle=fill;ctx.strokeStyle=stroke||fill;ctx.lineWidth=2;
+    ctx.beginPath();ctx.roundRect(o.x,o.y,o.w,o.h,6);ctx.fill();ctx.stroke();
+    if(label){ctx.fillStyle='#0a0d1f';ctx.font='bold 13px sans-serif';ctx.textAlign='center';
+      ctx.fillText(label,o.x+o.w/2,o.y+o.h/2+5);}
+  }
+
+  function draw(){
+    ctx.clearRect(0,0,cv.width,cv.height);
+    const paintBG = (mode!=='Ins'); // インスタンスは背景を塗らない
+    // 背景：空
+    ctx.fillStyle = paintBG ? C.sky : C.gray;
+    ctx.fillRect(0,0,cv.width,180);
+    // 背景：道路
+    ctx.fillStyle = paintBG ? C.road : C.gray;
+    ctx.fillRect(0,180,cv.width,cv.height-180);
+    if(!paintBG){ // 背景は「分類しない(灰)」を明示
+      ctx.fillStyle='#3a4170';ctx.font='12px sans-serif';ctx.textAlign='left';
+      ctx.fillText('背景(空・道路)は分類しない＝灰色',12,24);
+    }else{
+      ctx.fillStyle='rgba(255,255,255,.55)';ctx.font='12px sans-serif';ctx.textAlign='left';
+      ctx.fillText('空(sky)',12,24); ctx.fillText('道路(road)',12,200);
+    }
+
+    // 物体の塗り方をモードで切替
+    cars.forEach((c,i)=>{
+      if(mode==='Sem')       box(c, C.carClass, '#0a0d1f', '車');
+      else if(mode==='Ins')  box(c, C.carIDs[i], '#0a0d1f', '車'+(i+1));
+      else                   box(c, C.carIDs[i], '#0a0d1f', '車'+(i+1)); // Pan
+    });
+    people.forEach((p,i)=>{
+      if(mode==='Sem')       box(p, C.personClass, '#0a0d1f', '人');
+      else if(mode==='Ins')  box(p, C.personIDs[i], '#0a0d1f', (i+1)+'');
+      else                   box(p, C.personIDs[i], '#0a0d1f', (i+1)+'');
+    });
+
+    const cap=document.getElementById('caption');
+    const desc=document.getElementById('desc');
+    if(mode==='Sem'){
+      cap.innerHTML='車3台はすべて<span style="color:#26a69a">同じ緑</span>＝「車」クラス。人2人も<span style="color:#ec407a">同じピンク</span>。空・道路も塗る。';
+      desc.innerHTML='<span class="hl">① セマンティックセグメンテーション</span>：全画素を<b>クラス(種類)で分類</b>するが、<span class="hl">同じ種類の物体は区別しない</span>（車3台がひとまとめ）。「何が写っているか」を画素単位で。';
+    }else if(mode==='Ins'){
+      cap.innerHTML='車1・車2・車3が<b>別々の色＝個体識別</b>。人も1・2で区別。ただし<span style="color:#9fa8da">背景(空・道路)は塗らない</span>。';
+      desc.innerHTML='<span class="hl">② インスタンスセグメンテーション</span>：<span class="hl">物体を1個ずつ区別(ID付け)</span>するのが主役。ただし対象は「数えられる物体(things)」だけで、<b>背景(stuff)は扱わない</b>のが基本。代表=Mask R-CNN。';
+    }else{
+      cap.innerHTML='背景(空・道路)も塗り、かつ車1・車2・車3を<b>個体識別</b>。<span style="color:#69f0ae">セマンティック＋インスタンスの全部入り</span>。';
+      desc.innerHTML='<span class="hl">③ パノプティックセグメンテーション</span>：<span class="hl">全画素を分類(背景も)</span> ＋ <span class="hl">物体は個体識別</span>を<b>両立</b>した最上位互換。背景=stuff、物体=thingsを統合的に扱う。';
+    }
+    // 表のハイライト
+    ['t1a','t1b','t2a','t2b','t3a','t3b'].forEach(id=>document.getElementById(id).style.outline='none');
+    const map={Sem:['t1a','t1b'],Ins:['t2a','t2b'],Pan:['t3a','t3b']};
+    map[mode].forEach(id=>document.getElementById(id).style.outline='2px solid #ffd54f');
+  }
+  function setMode(m){mode=m;
+    document.getElementById('bSem').classList.toggle('on',m==='Sem');
+    document.getElementById('bIns').classList.toggle('on',m==='Ins');
+    document.getElementById('bPan').classList.toggle('on',m==='Pan');
+    draw();}
+  document.getElementById('bSem').onclick=()=>setMode('Sem');
+  document.getElementById('bIns').onclick=()=>setMode('Ins');
+  document.getElementById('bPan').onclick=()=>setMode('Pan');
+  draw();
+</script>
+</body>
+</html>

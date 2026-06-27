@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>正規化4種 ビジュアル</title>
+<style>
+  *{box-sizing:border-box;}
+  body{font-family:-apple-system,"Hiragino Sans","Yu Gothic",sans-serif;background:#0f1226;color:#e8eaf6;margin:0;padding:24px;line-height:1.6;}
+  h1{font-size:22px;margin:0 0 4px;} .sub{color:#9fa8da;font-size:14px;margin-bottom:18px;}
+  .panel{background:#1a1f3d;border-radius:14px;padding:20px;margin-bottom:18px;box-shadow:0 4px 16px rgba(0,0,0,.3);}
+  .row{display:flex;gap:30px;flex-wrap:wrap;align-items:flex-start;}
+  canvas{background:#0a0d1f;border-radius:10px;}
+  .side{min-width:300px;flex:1;display:flex;flex-direction:column;gap:14px;}
+  .modes{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .modes button{background:#11142b;color:#9fa8da;border:1px solid #2a3158;border-radius:8px;padding:11px;font-size:14px;font-weight:bold;cursor:pointer;}
+  .modes button.on{background:#7c4dff;color:#fff;border-color:#7c4dff;}
+  .ctrl label{font-size:13px;color:#9fa8da;display:block;margin-bottom:6px;}
+  input[type=range]{width:100%;} .v{color:#fff;font-weight:bold;font-size:16px;}
+  .desc{background:#11142b;padding:14px;border-radius:8px;font-size:14px;}
+  .desc .hl{color:#ffd54f;font-weight:bold;}
+  .legend{font-size:12px;color:#9fa8da;margin-top:8px;}
+</style>
+</head>
+<body>
+  <a href="00_目次.html" style="display:inline-block;margin:0 0 16px;color:#9fa8da;text-decoration:none;font-size:14px;background:#1a1f3d;padding:7px 16px;border-radius:8px;border:1px solid #2a3158;">← 目次へ戻る</a>
+  <h1>🧊 正規化4種（Batch / Layer / Instance / Group）</h1>
+  <div class="sub">特徴マップの集まりを「どの範囲をひとまとめにして平均・分散を計算するか」で色分け。<b>黄色＝一緒に正規化される範囲</b>。方式を切り替えて違いを体感しよう。横＝チャンネル(C)、縦＝ミニバッチ内のデータ(N)、1マス＝1枚の特徴マップ(H×W)。</div>
+
+  <div class="panel">
+    <div class="row">
+      <div>
+        <canvas id="cv" width="440" height="360"></canvas>
+        <div class="legend">
+          <span style="color:#ffd54f">■</span> 一緒に正規化（平均・分散を共有）
+          <span style="color:#37406e">■</span> 別グループ
+        </div>
+      </div>
+      <div class="side">
+        <div class="modes">
+          <button id="bBatch" class="on">Batch正規化</button>
+          <button id="bLayer">Layer正規化</button>
+          <button id="bInstance">Instance正規化</button>
+          <button id="bGroup">Group正規化</button>
+        </div>
+        <div class="ctrl">
+          <label>注目している位置を動かす（黄色がどこの集合か）</label>
+          <input id="pos" type="range" min="0" max="100" step="1" value="20"><span class="v" id="posV"></span>
+        </div>
+        <div class="desc" id="desc"></div>
+        <div class="desc" style="background:#16302c;border-left:4px solid #26a69a;color:#b2dfdb;font-size:13px;">
+          🔑 <b>Batch</b>＝<b>ミニバッチ内の全データ</b>×<b>1チャンネル</b>（縦1列）。だから"バッチ"＝複数データをまたぐ。バッチサイズに依存。<br>
+          🔑 <b>Layer</b>＝<b>1データ内の全チャンネル</b>（横1行）。バッチに依存しない。<br>
+          🔑 <b>Instance</b>＝<b>1データ×1チャンネル</b>（1マス）。<br>
+          🔑 <b>Group</b>＝<b>1データ内のチャンネルを数個ずつグループ化</b>（行の一部）。
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel" style="font-size:13.5px;">
+    <b style="color:#ffd54f;">📝 試験のツボ（問87）</b><br>
+    バッチ正規化は「<b>ミニバッチ内のすべてのデータ</b>について、<b>チャンネルごと</b>に正規化」が正解。<br>
+    ・「すべてのチャンネルをまとめて」→ ✕（チャンネルは独立）<br>
+    ・「1つのデータだけで」→ それは Layer/Instance 寄り<br>
+    合言葉：<b>"Batch"なんだからバッチ（複数データ）をまたぐ。"Layer"は1データ内で完結。</b>
+  </div>
+
+<script>
+  const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+  const N=5, C=6;                 // 縦=データ数, 横=チャンネル数
+  const cell=54, gap=6, ox=70, oy=46;
+  let mode='Batch';
+
+  // 注目位置(0-100)から currentN, currentC を決める
+  function cur(){
+    const p=+document.getElementById('pos').value/100;
+    const cN=Math.min(N-1,Math.floor(p*N));
+    const cC=Math.min(C-1,Math.floor(p*C));
+    return {cN,cC};
+  }
+  const GROUP=2; // Group正規化のグループサイズ（チャンネル2個ずつ）
+
+  function inSet(n,c,cN,cC){
+    switch(mode){
+      case 'Batch':    return c===cC;                       // 同じチャンネルの全データ（縦1列）
+      case 'Layer':    return n===cN;                       // 同じデータの全チャンネル（横1行）
+      case 'Instance': return n===cN && c===cC;             // 1マス
+      case 'Group':    return n===cN && Math.floor(c/GROUP)===Math.floor(cC/GROUP); // 行の一部
+    }
+  }
+
+  function draw(){
+    const {cN,cC}=cur();
+    ctx.clearRect(0,0,cv.width,cv.height);
+    // 軸ラベル
+    ctx.fillStyle='#9fa8da';ctx.font='13px sans-serif';
+    ctx.save();ctx.translate(20,oy+ (N*(cell+gap))/2);ctx.rotate(-Math.PI/2);
+    ctx.textAlign='center';ctx.fillText('N : ミニバッチ内のデータ →',0,0);ctx.restore();
+    ctx.textAlign='center';ctx.fillText('C : チャンネル →',ox+(C*(cell+gap))/2-3,28);
+    let cnt=0;
+    for(let n=0;n<N;n++){
+      for(let c=0;c<C;c++){
+        const x=ox+c*(cell+gap), y=oy+n*(cell+gap);
+        const on=inSet(n,c,cN,cC);
+        if(on)cnt++;
+        // マス（特徴マップ風に内部に細かいグリッド）
+        ctx.fillStyle=on?'#3a3410':'#11152e';
+        ctx.strokeStyle=on?'#ffd54f':'#2a3158';ctx.lineWidth=on?2:1;
+        ctx.beginPath();ctx.roundRect(x,y,cell,cell,7);ctx.fill();ctx.stroke();
+        // 内部の小ピクセル(H×W)を表現
+        ctx.fillStyle=on?'rgba(255,213,79,.55)':'rgba(120,130,170,.18)';
+        for(let i=0;i<3;i++)for(let j=0;j<3;j++){
+          ctx.fillRect(x+10+j*12,y+10+i*12,8,8);
+        }
+      }
+    }
+    document.getElementById('posV').textContent='データ#'+(cN+1)+' / チャンネル#'+(cC+1);
+    const d=document.getElementById('desc');
+    const txt={
+      Batch:'<span class="hl">Batch正規化</span>：選んだ<b>チャンネル#'+(cC+1)+'</b>について、<span class="hl">ミニバッチ内の全データ('+N+'枚)をまたいで</span>平均・分散を計算（縦1列が黄色）。チャンネルごとに独立。バッチサイズが小さいと不安定になる弱点あり。',
+      Layer:'<span class="hl">Layer正規化</span>：選んだ<b>データ#'+(cN+1)+'</b>について、<span class="hl">そのデータ内の全チャンネルをまとめて</span>正規化（横1行が黄色）。他のデータは見ない＝<b>バッチサイズに依存しない</b>。RNN/Transformerで定番。',
+      Instance:'<span class="hl">Instance正規化</span>：<b>1データ×1チャンネル</b>だけで正規化（1マスが黄色）。画風変換(スタイル変換)などで使われる。',
+      Group:'<span class="hl">Group正規化</span>：1データ内のチャンネルを<b>'+GROUP+'個ずつのグループ</b>に分けて正規化（行の一部が黄色）。Batchの「バッチ依存」とLayerの「全部まとめ」の中間。小バッチでも安定。'
+    };
+    d.innerHTML=txt[mode]+'<div style="margin-top:8px;color:#9fa8da;font-size:12.5px;">→ いま黄色いマス＝<b style="color:#ffd54f">'+cnt+'枚</b>の特徴マップが1つの平均・分散を共有。</div>';
+  }
+  function setMode(m){mode=m;
+    ['Batch','Layer','Instance','Group'].forEach(k=>
+      document.getElementById('b'+k).classList.toggle('on',k===m));
+    draw();}
+  document.getElementById('bBatch').onclick=()=>setMode('Batch');
+  document.getElementById('bLayer').onclick=()=>setMode('Layer');
+  document.getElementById('bInstance').onclick=()=>setMode('Instance');
+  document.getElementById('bGroup').onclick=()=>setMode('Group');
+  document.getElementById('pos').addEventListener('input',draw);
+  draw();
+</script>
+</body>
+</html>
