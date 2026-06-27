@@ -40,7 +40,7 @@
 <body>
   <a href="00_目次.html" style="display:inline-block;margin:0 0 16px;color:#9fa8da;text-decoration:none;font-size:14px;background:#1a1f3d;padding:7px 16px;border-radius:8px;border:1px solid #2a3158;">← 目次へ戻る</a>
   <h1>🗺️ 機械学習の地図（全体像）</h1>
-  <div class="sub">①包含関係（AIの中のどこか）→ ②機械学習の3分類 → ③各分類に所属する技術。暗記モードで自分でテストできる。</div>
+  <div class="sub">包含関係（AI⊃ML⊃NN⊃DL）＋ <b>3つの軸</b>で整理：<b style="color:#42a5f5;">軸①学び方</b>（教師あり/なし/強化）・<b style="color:#ffca28;">軸②道具</b>（モデル）・<b style="color:#66bb6a;">軸③タスク</b>（評価指標とセット）。暗記モードで自己テストも。</div>
 
   <!-- ① 包含関係 -->
   <div class="panel">
@@ -61,7 +61,7 @@
 
   <!-- ② ③ 3分類と所属技術 -->
   <div class="panel">
-    <h2>② 機械学習の3分類（＋中間：半教師あり・自己教師あり）</h2>
+    <h2>🔵 軸①：学び方 — 機械学習の3分類（＋中間：半教師あり・自己教師あり）</h2>
     <div class="tabs">
       <button id="tSup" class="on">🟦 教師あり</button>
       <button id="tUns">🟩 教師なし</button>
@@ -75,10 +75,35 @@
     <div id="body"></div>
   </div>
 
-  <!-- 道具の補足 -->
+  <!-- 軸② 道具 -->
   <div class="panel" style="font-size:13px;">
-    <h2>⚙️ NN/DL系の「道具」はどこに乗る？</h2>
-    <div style="color:#9fa8da;margin-bottom:8px;">NN/DLは3分類の<b style="color:#ffd54f;">メンバーではなく道具</b>。どの分類にも乗る。</div>
+    <h2>🟡 軸②：道具（モデル）— どの学び方にも乗る</h2>
+    <div class="grp"><div class="gl">古典的な機械学習モデル</div>
+    <table style="width:100%;border-collapse:collapse;font-size:12.5px;margin-bottom:14px;">
+      <tr><th style="padding:6px;border:1px solid #2a3158;color:#9fa8da;">道具</th><th style="padding:6px;border:1px solid #2a3158;color:#9fa8da;">特徴キーワード</th><th style="padding:6px;border:1px solid #2a3158;color:#9fa8da;">主な用途</th></tr>
+      <tr><td style="padding:6px;border:1px solid #2a3158;">線形回帰</td><td style="padding:6px;border:1px solid #2a3158;">直線・最小二乗法</td><td style="padding:6px;border:1px solid #2a3158;">回帰</td></tr>
+      <tr><td style="padding:6px;border:1px solid #2a3158;">ロジスティック回帰</td><td style="padding:6px;border:1px solid #2a3158;">シグモイド・最尤法</td><td style="padding:6px;border:1px solid #2a3158;">分類</td></tr>
+      <tr><td style="padding:6px;border:1px solid #2a3158;">SVM</td><td style="padding:6px;border:1px solid #2a3158;">マージン最大化・カーネル</td><td style="padding:6px;border:1px solid #2a3158;">分類（回帰も）</td></tr>
+      <tr><td style="padding:6px;border:1px solid #2a3158;">決定木</td><td style="padding:6px;border:1px solid #2a3158;">If-Then分岐・解釈性</td><td style="padding:6px;border:1px solid #2a3158;">分類・回帰</td></tr>
+      <tr><td style="padding:6px;border:1px solid #2a3158;">ランダムフォレスト/アンサンブル</td><td style="padding:6px;border:1px solid #2a3158;">バギング・多数決</td><td style="padding:6px;border:1px solid #2a3158;">分類・回帰</td></tr>
+      <tr><td style="padding:6px;border:1px solid #2a3158;">k近傍法(k-NN)</td><td style="padding:6px;border:1px solid #2a3158;">近傍の多数決・怠惰学習</td><td style="padding:6px;border:1px solid #2a3158;">分類</td></tr>
+      <tr><td style="padding:6px;border:1px solid #2a3158;">ナイーブベイズ</td><td style="padding:6px;border:1px solid #2a3158;">ベイズ・独立仮定</td><td style="padding:6px;border:1px solid #2a3158;">分類（テキスト）</td></tr>
+      <tr><td style="padding:6px;border:1px solid #2a3158;">k-means</td><td style="padding:6px;border:1px solid #2a3158;">重心・クラスタ</td><td style="padding:6px;border:1px solid #2a3158;">クラスタリング</td></tr>
+      <tr><td style="padding:6px;border:1px solid #2a3158;">PCA</td><td style="padding:6px;border:1px solid #2a3158;">分散最大・圧縮</td><td style="padding:6px;border:1px solid #2a3158;">次元削減</td></tr>
+    </table></div>
+    <div class="grp"><div class="gl">ディープラーニングのアーキテクチャ</div>
+    <table style="width:100%;border-collapse:collapse;font-size:12.5px;margin-bottom:14px;">
+      <tr><th style="padding:6px;border:1px solid #2a3158;color:#9fa8da;">道具</th><th style="padding:6px;border:1px solid #2a3158;color:#9fa8da;">特徴キーワード</th><th style="padding:6px;border:1px solid #2a3158;color:#9fa8da;">主なタスク</th><th style="padding:6px;border:1px solid #2a3158;color:#9fa8da;">学び方</th></tr>
+      <tr><td style="padding:6px;border:1px solid #2a3158;">MLP（多層パーセプトロン）</td><td style="padding:6px;border:1px solid #2a3158;">全結合・基本形</td><td style="padding:6px;border:1px solid #2a3158;">分類・回帰</td><td style="padding:6px;border:1px solid #2a3158;color:#42a5f5;">教師あり</td></tr>
+      <tr><td style="padding:6px;border:1px solid #2a3158;">CNN</td><td style="padding:6px;border:1px solid #2a3158;">畳み込み・画像の特徴抽出</td><td style="padding:6px;border:1px solid #2a3158;">画像認識・検出・セグメ</td><td style="padding:6px;border:1px solid #2a3158;color:#42a5f5;">教師あり</td></tr>
+      <tr><td style="padding:6px;border:1px solid #2a3158;">RNN/LSTM/GRU</td><td style="padding:6px;border:1px solid #2a3158;">再帰・系列・記憶セル(CEC)</td><td style="padding:6px;border:1px solid #2a3158;">時系列・言語</td><td style="padding:6px;border:1px solid #2a3158;color:#42a5f5;">教師あり</td></tr>
+      <tr><td style="padding:6px;border:1px solid #2a3158;">Transformer</td><td style="padding:6px;border:1px solid #2a3158;">Attention・並列・長距離依存</td><td style="padding:6px;border:1px solid #2a3158;">言語・画像(ViT)</td><td style="padding:6px;border:1px solid #2a3158;color:#9ccc65;">教師あり/自己教師</td></tr>
+      <tr><td style="padding:6px;border:1px solid #2a3158;">オートエンコーダ/VAE</td><td style="padding:6px;border:1px solid #2a3158;">エンコーダ＋デコーダ・圧縮</td><td style="padding:6px;border:1px solid #2a3158;">次元削減・生成・異常検知</td><td style="padding:6px;border:1px solid #2a3158;color:#26a69a;">教師なし</td></tr>
+      <tr><td style="padding:6px;border:1px solid #2a3158;">GAN</td><td style="padding:6px;border:1px solid #2a3158;">生成器vs識別器・敵対学習</td><td style="padding:6px;border:1px solid #2a3158;">生成</td><td style="padding:6px;border:1px solid #2a3158;color:#26a69a;">教師なし</td></tr>
+      <tr><td style="padding:6px;border:1px solid #2a3158;">拡散モデル</td><td style="padding:6px;border:1px solid #2a3158;">ノイズ除去・段階生成</td><td style="padding:6px;border:1px solid #2a3158;">生成</td><td style="padding:6px;border:1px solid #2a3158;color:#26a69a;">教師なし</td></tr>
+      <tr><td style="padding:6px;border:1px solid #2a3158;">BERT/GPT</td><td style="padding:6px;border:1px solid #2a3158;">事前学習＋ファインチューニング</td><td style="padding:6px;border:1px solid #2a3158;">言語全般</td><td style="padding:6px;border:1px solid #2a3158;color:#9ccc65;">自己教師あり</td></tr>
+    </table></div>
+    <div style="color:#9fa8da;margin-bottom:8px;">▼ 道具はどの学び方に乗る？（NN/DLは3分類の<b style="color:#ffd54f;">メンバーではなく道具</b>）</div>
     <table style="width:100%;border-collapse:collapse;font-size:12.5px;">
       <tr><td style="padding:6px;border:1px solid #2a3158;">CNN（画像分類・検出・セグメンテーション）</td><td style="padding:6px;border:1px solid #2a3158;color:#42a5f5;">教師あり</td></tr>
       <tr><td style="padding:6px;border:1px solid #2a3158;">RNN / LSTM / GRU・Transformer / BERT</td><td style="padding:6px;border:1px solid #2a3158;color:#42a5f5;">教師あり（事前学習は自己教師あり）</td></tr>
@@ -86,6 +111,40 @@
       <tr><td style="padding:6px;border:1px solid #2a3158;">DQN / AlphaGo系</td><td style="padding:6px;border:1px solid #2a3158;color:#ec407a;">強化学習</td></tr>
     </table>
     <div class="note" style="margin-top:12px;">🧠 合言葉：<b>「学び方は3つ（あり・なし・強化）、NN/DLは"全部に乗る道具"」</b></div>
+  </div>
+
+  <!-- 軸③ タスク -->
+  <div class="panel" style="font-size:13px;">
+    <h2>🟢 軸③：タスク — 評価指標とセットで覚える</h2>
+    <div class="grp"><div class="gl">🟦 教師あり系</div>
+    <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:12px;">
+      <tr><th style="padding:5px;border:1px solid #2a3158;color:#9fa8da;">タスク</th><th style="padding:5px;border:1px solid #2a3158;color:#9fa8da;">何をする</th><th style="padding:5px;border:1px solid #2a3158;color:#9fa8da;">代表手法</th><th style="padding:5px;border:1px solid #2a3158;color:#9fa8da;">評価指標</th></tr>
+      <tr><td style="padding:5px;border:1px solid #2a3158;">分類</td><td style="padding:5px;border:1px solid #2a3158;">カテゴリを当てる</td><td style="padding:5px;border:1px solid #2a3158;">ロジ回帰・SVM・決定木・RF・CNN</td><td style="padding:5px;border:1px solid #2a3158;color:#ffd54f;">正解率・適合率・再現率・F値・AUC・混同行列</td></tr>
+      <tr><td style="padding:5px;border:1px solid #2a3158;">回帰</td><td style="padding:5px;border:1px solid #2a3158;">数値を予測</td><td style="padding:5px;border:1px solid #2a3158;">線形回帰・重回帰</td><td style="padding:5px;border:1px solid #2a3158;color:#ffd54f;">RMSE・MSE・MAE・R²(決定係数)</td></tr>
+    </table></div>
+    <div class="grp"><div class="gl">🟩 教師なし系</div>
+    <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:12px;">
+      <tr><th style="padding:5px;border:1px solid #2a3158;color:#9fa8da;">タスク</th><th style="padding:5px;border:1px solid #2a3158;color:#9fa8da;">何をする</th><th style="padding:5px;border:1px solid #2a3158;color:#9fa8da;">代表手法</th><th style="padding:5px;border:1px solid #2a3158;color:#9fa8da;">評価指標</th></tr>
+      <tr><td style="padding:5px;border:1px solid #2a3158;">クラスタリング</td><td style="padding:5px;border:1px solid #2a3158;">グループ分け</td><td style="padding:5px;border:1px solid #2a3158;">k-means・階層的・DBSCAN</td><td style="padding:5px;border:1px solid #2a3158;color:#ffd54f;">シルエット係数（k決定=エルボー法）</td></tr>
+      <tr><td style="padding:5px;border:1px solid #2a3158;">次元削減</td><td style="padding:5px;border:1px solid #2a3158;">特徴を圧縮</td><td style="padding:5px;border:1px solid #2a3158;">PCA・t-SNE・SVD</td><td style="padding:5px;border:1px solid #2a3158;color:#ffd54f;">寄与率・累積寄与率(PCA)</td></tr>
+      <tr><td style="padding:5px;border:1px solid #2a3158;">アソシエーション分析</td><td style="padding:5px;border:1px solid #2a3158;">相関ルール抽出</td><td style="padding:5px;border:1px solid #2a3158;">アプリオリ法</td><td style="padding:5px;border:1px solid #2a3158;color:#ffd54f;">支持度・確信度・リフト値</td></tr>
+      <tr><td style="padding:5px;border:1px solid #2a3158;">異常検知</td><td style="padding:5px;border:1px solid #2a3158;">外れ値を見つける</td><td style="padding:5px;border:1px solid #2a3158;">ホテリング理論・AE</td><td style="padding:5px;border:1px solid #2a3158;">—</td></tr>
+    </table></div>
+    <div class="grp"><div class="gl">🎨 生成・応用系（主にDL）</div>
+    <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:12px;">
+      <tr><th style="padding:5px;border:1px solid #2a3158;color:#9fa8da;">タスク</th><th style="padding:5px;border:1px solid #2a3158;color:#9fa8da;">何をする</th><th style="padding:5px;border:1px solid #2a3158;color:#9fa8da;">代表手法</th><th style="padding:5px;border:1px solid #2a3158;color:#9fa8da;">評価指標</th></tr>
+      <tr><td style="padding:5px;border:1px solid #2a3158;">物体検出</td><td style="padding:5px;border:1px solid #2a3158;">位置＋種類</td><td style="padding:5px;border:1px solid #2a3158;">YOLO・SSD・R-CNN系</td><td style="padding:5px;border:1px solid #2a3158;color:#ffd54f;">IoU・mAP</td></tr>
+      <tr><td style="padding:5px;border:1px solid #2a3158;">セグメンテーション</td><td style="padding:5px;border:1px solid #2a3158;">画素単位で分類</td><td style="padding:5px;border:1px solid #2a3158;">U-Net・FCN・SegNet</td><td style="padding:5px;border:1px solid #2a3158;color:#ffd54f;">IoU・mIoU</td></tr>
+      <tr><td style="padding:5px;border:1px solid #2a3158;">生成</td><td style="padding:5px;border:1px solid #2a3158;">データを作る</td><td style="padding:5px;border:1px solid #2a3158;">GAN・VAE・拡散モデル</td><td style="padding:5px;border:1px solid #2a3158;color:#ffd54f;">FID・Inception Score</td></tr>
+      <tr><td style="padding:5px;border:1px solid #2a3158;">機械翻訳・文章生成</td><td style="padding:5px;border:1px solid #2a3158;">言語を変換/生成</td><td style="padding:5px;border:1px solid #2a3158;">seq2seq・Transformer・GPT</td><td style="padding:5px;border:1px solid #2a3158;color:#ffd54f;">BLEU</td></tr>
+      <tr><td style="padding:5px;border:1px solid #2a3158;">音声認識</td><td style="padding:5px;border:1px solid #2a3158;">音声→テキスト</td><td style="padding:5px;border:1px solid #2a3158;">HMM・CTC・WaveNet</td><td style="padding:5px;border:1px solid #2a3158;color:#ffd54f;">単語誤り率(WER)</td></tr>
+    </table></div>
+    <div class="grp"><div class="gl">🟥 強化学習系</div>
+    <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:12px;">
+      <tr><th style="padding:5px;border:1px solid #2a3158;color:#9fa8da;">タスク</th><th style="padding:5px;border:1px solid #2a3158;color:#9fa8da;">何をする</th><th style="padding:5px;border:1px solid #2a3158;color:#9fa8da;">代表手法</th><th style="padding:5px;border:1px solid #2a3158;color:#9fa8da;">評価指標</th></tr>
+      <tr><td style="padding:5px;border:1px solid #2a3158;">制御・ゲーム攻略</td><td style="padding:5px;border:1px solid #2a3158;">行動を最適化</td><td style="padding:5px;border:1px solid #2a3158;">DQN・PPO・AlphaGo系</td><td style="padding:5px;border:1px solid #2a3158;color:#ffd54f;">累積報酬・割引報酬</td></tr>
+    </table></div>
+    <div class="note" style="border-left-color:#66bb6a;">🧠 合言葉：<b>評価指標は"手法"じゃなく"タスク"に紐づく</b>。AUC=分類／RMSE=回帰／BLEU=翻訳／mAP=物体検出。</div>
   </div>
 
   <!-- LDA二重人格＆判定基準 -->
