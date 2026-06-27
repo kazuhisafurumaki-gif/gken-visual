@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>機械学習の地図 ビジュアル</title>
+<style>
+  *{box-sizing:border-box;}
+  body{font-family:-apple-system,"Hiragino Sans","Yu Gothic",sans-serif;background:#0f1226;color:#e8eaf6;margin:0;padding:24px;line-height:1.6;}
+  h1{font-size:22px;margin:0 0 4px;} .sub{color:#9fa8da;font-size:14px;margin-bottom:18px;}
+  .panel{background:#1a1f3d;border-radius:14px;padding:20px;margin-bottom:18px;box-shadow:0 4px 16px rgba(0,0,0,.3);}
+  h2{font-size:16px;margin:0 0 12px;color:#fff;}
+  /* 入れ子の包含図 */
+  .nest{border-radius:12px;padding:14px;font-size:13px;}
+  .ai{background:#1b1330;border:2px solid #7c4dff;}
+  .nonml{background:#2b1a1a;border:1px dashed #ef9a9a;color:#ffcdd2;padding:9px 12px;border-radius:9px;margin:8px 0;font-size:12.5px;}
+  .ml{background:#13261f;border:2px solid #26a69a;margin-top:8px;}
+  .nn{background:#11253a;border:2px solid #42a5f5;margin-top:8px;}
+  .dl{background:#2a2410;border:2px solid #ffca28;margin-top:8px;padding:9px 12px;border-radius:9px;}
+  .tag{font-weight:bold;font-size:12px;padding:2px 8px;border-radius:6px;}
+  /* 3分類タブ */
+  .tabs{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;}
+  .tabs button{flex:1;min-width:120px;background:#11142b;color:#9fa8da;border:1px solid #2a3158;border-radius:8px;padding:11px;font-size:14px;font-weight:bold;cursor:pointer;}
+  .tabs button.on{color:#fff;}
+  #tSup.on{background:#1565c0;border-color:#42a5f5;}
+  #tUns.on{background:#00695c;border-color:#26a69a;}
+  #tRL.on{background:#ad1457;border-color:#ec407a;}
+  .grp{margin-bottom:12px;}
+  .grp .gl{font-size:13px;color:#ffd54f;font-weight:bold;margin-bottom:6px;}
+  .chips{display:flex;flex-wrap:wrap;gap:7px;}
+  .chip{background:#11142b;border:1px solid #2a3158;border-radius:8px;padding:6px 11px;font-size:13px;}
+  .note{background:#11142b;border-left:4px solid #7c4dff;padding:12px;border-radius:8px;font-size:13px;margin-top:6px;}
+  .note b{color:#ffd54f;}
+  .memo{display:flex;align-items:center;gap:10px;margin:6px 0 16px;}
+  .memo button{background:#7c4dff;color:#fff;border:none;border-radius:8px;padding:9px 16px;font-size:13px;font-weight:bold;cursor:pointer;}
+  .hidden .chip{color:transparent;text-shadow:0 0 12px #5c6bc0;background:#1a1f3d;border-style:dashed;user-select:none;}
+  .hidden .chip:hover{color:#e8eaf6;text-shadow:none;}
+</style>
+</head>
+<body>
+  <a href="00_目次.html" style="display:inline-block;margin:0 0 16px;color:#9fa8da;text-decoration:none;font-size:14px;background:#1a1f3d;padding:7px 16px;border-radius:8px;border:1px solid #2a3158;">← 目次へ戻る</a>
+  <h1>🗺️ 機械学習の地図（全体像）</h1>
+  <div class="sub">①包含関係（AIの中のどこか）→ ②機械学習の3分類 → ③各分類に所属する技術。暗記モードで自分でテストできる。</div>
+
+  <!-- ① 包含関係 -->
+  <div class="panel">
+    <h2>① 包含関係：AI ⊃ 機械学習 ⊃ NN ⊃ DL</h2>
+    <div class="nest ai">
+      <span class="tag" style="background:#7c4dff;color:#fff;">AI（人工知能）</span> 賢く振る舞うもの全部
+      <div class="nonml">★ 非ML（学習しない）… 🔵探索・推論（第1次） / 🟡エキスパートシステム＝人がルールを書く（第2次）</div>
+      <div class="nest ml">
+        <span class="tag" style="background:#26a69a;color:#fff;">機械学習（ML）</span> データから自分で学ぶ ＝🟢第3次の主役
+        <div class="nest nn">
+          <span class="tag" style="background:#42a5f5;color:#fff;">ニューラルネット（NN）</span>
+          <div class="dl"><span class="tag" style="background:#ffca28;color:#222;">ディープラーニング（DL）</span> 層を深くしたNN</div>
+        </div>
+      </div>
+    </div>
+    <div class="note" style="margin-top:12px;">境界線は <b>「データから学ぶ＝ML／人がルールを書く＝非ML」</b>。1次2次＝非ML、3次＝ML。</div>
+  </div>
+
+  <!-- ② ③ 3分類と所属技術 -->
+  <div class="panel">
+    <h2>② 機械学習の3分類（＋中間：半教師あり・自己教師あり）</h2>
+    <div class="tabs">
+      <button id="tSup" class="on">🟦 教師あり</button>
+      <button id="tUns">🟩 教師なし</button>
+      <button id="tRL">🟥 強化学習</button>
+    </div>
+    <div class="memo">
+      <button id="memoBtn">🧠 暗記モード：OFF</button>
+      <span style="font-size:12px;color:#9fa8da;">ON＝技術名を隠す。チップにタッチで1つずつ答え合わせ。</span>
+    </div>
+    <div id="head" class="note" style="margin-bottom:14px;"></div>
+    <div id="body"></div>
+  </div>
+
+  <!-- 道具の補足 -->
+  <div class="panel" style="font-size:13px;">
+    <h2>⚙️ NN/DL系の「道具」はどこに乗る？</h2>
+    <div style="color:#9fa8da;margin-bottom:8px;">NN/DLは3分類の<b style="color:#ffd54f;">メンバーではなく道具</b>。どの分類にも乗る。</div>
+    <table style="width:100%;border-collapse:collapse;font-size:12.5px;">
+      <tr><td style="padding:6px;border:1px solid #2a3158;">CNN（画像分類・検出・セグメンテーション）</td><td style="padding:6px;border:1px solid #2a3158;color:#42a5f5;">教師あり</td></tr>
+      <tr><td style="padding:6px;border:1px solid #2a3158;">RNN / LSTM / GRU・Transformer / BERT</td><td style="padding:6px;border:1px solid #2a3158;color:#42a5f5;">教師あり（事前学習は自己教師あり）</td></tr>
+      <tr><td style="padding:6px;border:1px solid #2a3158;">GAN / VAE / AE / GPT・生成AI</td><td style="padding:6px;border:1px solid #2a3158;color:#26a69a;">教師なし・自己教師あり</td></tr>
+      <tr><td style="padding:6px;border:1px solid #2a3158;">DQN / AlphaGo系</td><td style="padding:6px;border:1px solid #2a3158;color:#ec407a;">強化学習</td></tr>
+    </table>
+    <div class="note" style="margin-top:12px;">🧠 合言葉：<b>「学び方は3つ（あり・なし・強化）、NN/DLは"全部に乗る道具"」</b></div>
+  </div>
+
+<script>
+  const DATA={
+    Sup:{ color:'#42a5f5', label:'🟦 教師あり学習',
+      head:'<b>正解ラベル</b>を頼りに学ぶ → 分類・回帰（答えを当てる）',
+      groups:[
+        {g:'回帰・分類の古典手法',items:['線形回帰','ロジスティック回帰','重回帰分析','サポートベクターマシン(SVM)','決定木','k近傍法(k-NN)','ナイーブベイズ']},
+        {g:'アンサンブル学習',items:['バギング','ランダムフォレスト','ブースティング(AdaBoost)','勾配ブースティング(XGBoost/LightGBM)','スタッキング']},
+        {g:'NN/DL系（道具）',items:['CNN','RNN/LSTM/GRU','Transformer/BERT']}
+      ]},
+    Uns:{ color:'#26a69a', label:'🟩 教師なし学習',
+      head:'<b>ラベルなし</b>でデータの構造を見つける → クラスタリング・次元削減',
+      groups:[
+        {g:'クラスタリング',items:['k-means(k平均法)','階層的クラスタリング(ウォード法)','DBSCAN','トピックモデル(LDA/LSI)']},
+        {g:'次元削減',items:['主成分分析(PCA)','特異値分解(SVD)','多次元尺度構成法(MDS)','t-SNE','独立成分分析(ICA)']},
+        {g:'その他・生成系',items:['アソシエーション分析(アプリオリ法)','協調フィルタリング','自己組織化マップ(SOM)','オートエンコーダ(AE/積層AE/VAE)','GAN','word2vec(自己教師あり)']}
+      ]},
+    RL:{ color:'#ec407a', label:'🟥 強化学習',
+      head:'<b>報酬</b>を頼りに試行錯誤で行動を最適化',
+      groups:[
+        {g:'古典的強化学習',items:['Q学習','SARSA','TD学習','モンテカルロ法','方策勾配法/REINFORCE','多腕バンディット(UCB/ε-greedy)','＊枠組み:MDP・ベルマン方程式']},
+        {g:'深層強化学習(DL×強化学習)',items:['DQN(ダブルDQN/デュエリング/Rainbow/Ape-X/ノイジーネット)','Actor-Critic(A3C/A2C)','PPO/TRPO','AlphaGo/Zero/AlphaZero/AlphaStar/OpenAI Five','＊sim2real・RLHF']}
+      ]}
+  };
+  let cur='Sup', memo=false;
+  function render(){
+    const d=DATA[cur];
+    document.getElementById('head').innerHTML=d.head;
+    let html='';
+    d.groups.forEach(grp=>{
+      html+='<div class="grp"><div class="gl">'+grp.g+'</div><div class="chips">';
+      grp.items.forEach(it=>{ html+='<span class="chip" style="border-left:3px solid '+d.color+'">'+it+'</span>'; });
+      html+='</div></div>';
+    });
+    const body=document.getElementById('body');
+    body.innerHTML=html;
+    body.className=memo?'hidden':'';
+  }
+  function setTab(t){cur=t;
+    ['Sup','Uns','RL'].forEach(k=>document.getElementById('t'+(k==='Sup'?'Sup':k==='Uns'?'Uns':'RL')).classList.toggle('on',k===t));
+    render();}
+  document.getElementById('tSup').onclick=()=>setTab('Sup');
+  document.getElementById('tUns').onclick=()=>setTab('Uns');
+  document.getElementById('tRL').onclick=()=>setTab('RL');
+  document.getElementById('memoBtn').onclick=function(){
+    memo=!memo; this.textContent='🧠 暗記モード：'+(memo?'ON':'OFF');
+    this.style.background=memo?'#26a69a':'#7c4dff'; render();
+  };
+  render();
+</script>
+</body>
+</html>
