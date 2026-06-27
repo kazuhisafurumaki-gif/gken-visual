@@ -88,19 +88,37 @@
     <div class="note" style="margin-top:12px;">🧠 合言葉：<b>「学び方は3つ（あり・なし・強化）、NN/DLは"全部に乗る道具"」</b></div>
   </div>
 
+  <!-- LDA二重人格＆判定基準 -->
+  <div class="panel" style="font-size:13px;">
+    <h2>⚠️ 分類は「タスク名」ではなく「ラベルを使うか」で決まる</h2>
+    <div style="color:#9fa8da;margin-bottom:10px;">次元削減＝基本は教師なし。でも<b style="color:#ffd54f;">ラベルを使えば教師あり</b>になる例外がある。</div>
+    <table style="width:100%;border-collapse:collapse;font-size:12.5px;margin-bottom:12px;">
+      <tr><th style="padding:6px;border:1px solid #2a3158;color:#9fa8da;">手法</th><th style="padding:6px;border:1px solid #2a3158;color:#9fa8da;">ラベル</th><th style="padding:6px;border:1px solid #2a3158;color:#9fa8da;">分類</th></tr>
+      <tr><td style="padding:6px;border:1px solid #2a3158;">主成分分析(PCA)</td><td style="padding:6px;border:1px solid #2a3158;">使わない</td><td style="padding:6px;border:1px solid #2a3158;color:#26a69a;">教師なし</td></tr>
+      <tr><td style="padding:6px;border:1px solid #2a3158;">線形判別分析(LDA)</td><td style="padding:6px;border:1px solid #2a3158;">使う</td><td style="padding:6px;border:1px solid #2a3158;color:#42a5f5;">教師あり</td></tr>
+    </table>
+    <div class="note" style="border-left-color:#ef5350;">
+      🚨 <b>「LDA」二重人格に注意</b><br>
+      ・LDA＝<b>線形判別分析</b>(Linear Discriminant Analysis) → ラベルを使う<b style="color:#42a5f5;">教師あり</b>次元削減<br>
+      ・LDA＝<b>潜在ディリクレ配分法</b>(Latent Dirichlet Allocation) → トピックモデル＝<b style="color:#26a69a;">教師なし</b><br>
+      同じ「LDA」でも正体が真逆。文脈で見分ける。
+    </div>
+  </div>
+
 <script>
   const DATA={
     Sup:{ color:'#42a5f5', label:'🟦 教師あり学習',
       head:'<b>正解ラベル</b>を頼りに学ぶ → 分類・回帰（答えを当てる）',
       groups:[
         {g:'回帰・分類の古典手法',items:['線形回帰','ロジスティック回帰','重回帰分析','サポートベクターマシン(SVM)','決定木','k近傍法(k-NN)','ナイーブベイズ']},
+        {g:'次元削減（教師あり・例外）',items:['線形判別分析(LDA=Linear Discriminant Analysis)']},
         {g:'アンサンブル学習',items:['バギング','ランダムフォレスト','ブースティング(AdaBoost)','勾配ブースティング(XGBoost/LightGBM)','スタッキング']},
         {g:'NN/DL系（道具）',items:['CNN','RNN/LSTM/GRU','Transformer/BERT']}
       ]},
     Uns:{ color:'#26a69a', label:'🟩 教師なし学習',
       head:'<b>ラベルなし</b>でデータの構造を見つける → クラスタリング・次元削減',
       groups:[
-        {g:'クラスタリング',items:['k-means(k平均法)','階層的クラスタリング(ウォード法)','DBSCAN','トピックモデル(LDA/LSI)']},
+        {g:'クラスタリング',items:['k-means(k平均法)','階層的クラスタリング(ウォード法)','DBSCAN','トピックモデル(LDA=潜在ディリクレ配分/LSI)']},
         {g:'次元削減',items:['主成分分析(PCA)','特異値分解(SVD)','多次元尺度構成法(MDS)','t-SNE','独立成分分析(ICA)']},
         {g:'その他・生成系',items:['アソシエーション分析(アプリオリ法)','協調フィルタリング','自己組織化マップ(SOM)','オートエンコーダ(AE/積層AE/VAE)','GAN','word2vec(自己教師あり)']}
       ]},
