@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>混同行列の読み解き道場</title>
+<style>
+  *{box-sizing:border-box;}
+  body{font-family:-apple-system,"Hiragino Sans","Yu Gothic",sans-serif;background:#0f1226;color:#e8eaf6;margin:0;padding:24px;line-height:1.6;}
+  h1{font-size:22px;margin:0 0 4px;} .sub{color:#9fa8da;font-size:14px;margin-bottom:18px;}
+  .panel{background:#1a1f3d;border-radius:14px;padding:20px;margin-bottom:18px;box-shadow:0 4px 16px rgba(0,0,0,.3);}
+  .panel h2{font-size:16px;margin:0 0 14px;color:#fff;}
+  .back{display:inline-block;margin:0 0 16px;color:#9fa8da;text-decoration:none;font-size:14px;background:#1a1f3d;padding:7px 16px;border-radius:8px;border:1px solid #2a3158;}
+  /* トグル */
+  .toggles{display:flex;gap:24px;flex-wrap:wrap;margin-bottom:18px;}
+  .tgroup label{display:block;font-size:13px;color:#9fa8da;margin-bottom:8px;}
+  .seg{display:inline-flex;background:#11142b;border-radius:10px;padding:4px;border:1px solid #2a3158;}
+  .seg button{border:none;background:transparent;color:#9fa8da;font-size:15px;font-weight:bold;padding:10px 20px;border-radius:8px;cursor:pointer;transition:.15s;}
+  .seg button.on{background:#3949ab;color:#fff;}
+  /* 行列 */
+  .cm{border-collapse:collapse;margin:0 auto;}
+  .cm th,.cm td{border:1px solid #2a3158;padding:0;text-align:center;}
+  .cm th{font-size:13px;color:#9fa8da;padding:8px 10px;background:#11142b;}
+  .cm td .cell{width:150px;height:84px;display:flex;flex-direction:column;justify-content:center;align-items:center;opacity:.32;transition:.18s;}
+  .cm td .cell.active{opacity:1;transform:scale(1.04);box-shadow:0 0 0 3px #ffd54f inset;}
+  .cell .code{font-size:24px;font-weight:bold;}
+  .cell .jp{font-size:13px;}
+  .cell .tag{font-size:11px;margin-top:2px;}
+  .tp{background:rgba(76,175,80,.30);} .tn{background:rgba(38,166,154,.30);}
+  .fp{background:rgba(255,138,101,.32);} .fn{background:rgba(255,110,110,.32);}
+  /* 判定結果 */
+  .verdict{margin-top:18px;text-align:center;}
+  .verdict .big{font-size:30px;font-weight:bold;color:#ffd54f;}
+  .verdict .exp{font-size:14px;color:#cfd3f7;margin-top:6px;}
+  .decode{display:flex;justify-content:center;gap:10px;margin-top:14px;flex-wrap:wrap;}
+  .chip{background:#11142b;border:1px solid #2a3158;border-radius:8px;padding:8px 14px;font-size:13px;}
+  .chip b{color:#ffd54f;}
+  /* クイズ */
+  .q{font-size:16px;background:#11142b;border-radius:10px;padding:16px;margin-bottom:14px;line-height:1.7;}
+  .q .scene{color:#90caf9;font-weight:bold;}
+  .opts{display:grid;grid-template-columns:1fr 1fr;gap:10px;max-width:420px;}
+  .opts button{padding:14px;font-size:15px;font-weight:bold;border-radius:10px;border:1px solid #2a3158;background:#1a1f3d;color:#e8eaf6;cursor:pointer;transition:.15s;}
+  .opts button:hover{border-color:#5c6bc0;}
+  .opts button.correct{background:rgba(76,175,80,.4);border-color:#66bb6a;}
+  .opts button.wrong{background:rgba(255,110,110,.4);border-color:#ff6e6e;}
+  .feedback{margin-top:14px;font-size:14px;min-height:24px;}
+  .feedback.ok{color:#81c784;} .feedback.ng{color:#ff8a80;}
+  .score{font-size:14px;color:#9fa8da;margin-top:8px;}
+  .next{margin-top:12px;background:#3949ab;color:#fff;border:none;padding:10px 20px;border-radius:8px;font-size:14px;cursor:pointer;}
+  /* ツボ */
+  .tubo{background:#15193a;border-left:4px solid #ffd54f;border-radius:8px;padding:14px 16px;font-size:14px;}
+  .tubo .label{color:#ffd54f;font-weight:bold;margin-bottom:6px;}
+  .aikotoba{background:rgba(57,73,171,.25);border-radius:8px;padding:12px 14px;margin-top:10px;font-size:14px;}
+  .aikotoba b{color:#ffd54f;}
+  ul{margin:6px 0;padding-left:20px;} li{margin:4px 0;}
+  .hl{color:#ffd54f;font-weight:bold;}
+</style>
+</head>
+<body>
+  <a class="back" href="00_目次.html">← 目次へ戻る</a>
+  <h1>🧩 混同行列の読み解き道場</h1>
+  <div class="sub">TP / FP / FN / TN が「どれ」か即判定できるようになる。FPとTNの混同を撲滅！</div>
+
+  <!-- インタラクティブ判定 -->
+  <div class="panel">
+    <h2>① 予測と正解を選ぶと、4象限のどれか光る</h2>
+    <div class="toggles">
+      <div class="tgroup">
+        <label>🤖 AIの予測（＝2文字目 P/N）</label>
+        <div class="seg" id="segPred">
+          <button data-v="1" class="on">陽性と予測(P)</button>
+          <button data-v="0">陰性と予測(N)</button>
+        </div>
+      </div>
+      <div class="tgroup">
+        <label>✅ 実際の正解</label>
+        <div class="seg" id="segReal">
+          <button data-v="1" class="on">実際は陽性</button>
+          <button data-v="0">実際は陰性</button>
+        </div>
+      </div>
+    </div>
+
+    <table class="cm">
+      <tr><th></th><th>予測：陽性</th><th>予測：陰性</th></tr>
+      <tr>
+        <th>実際：陽性</th>
+        <td><div class="cell tp" data-k="TP"><span class="code">TP</span><span class="jp">真陽性</span><span class="tag">✅正しく検出</span></div></td>
+        <td><div class="cell fn" data-k="FN"><span class="code">FN</span><span class="jp">偽陰性</span><span class="tag" style="color:#ff6e6e">😴見逃し</span></div></td>
+      </tr>
+      <tr>
+        <th>実際：陰性</th>
+        <td><div class="cell fp" data-k="FP"><span class="code">FP</span><span class="jp">偽陽性</span><span class="tag" style="color:#ff8a65">😱早とちり</span></div></td>
+        <td><div class="cell tn" data-k="TN"><span class="code">TN</span><span class="jp">真陰性</span><span class="tag">✅正しく除外</span></div></td>
+      </tr>
+    </table>
+
+    <div class="verdict">
+      <div class="big" id="vBig">TP（真陽性）</div>
+      <div class="exp" id="vExp"></div>
+      <div class="decode" id="vDecode"></div>
+    </div>
+  </div>
+
+  <!-- 読み解きルール -->
+  <div class="panel">
+    <h2>② 2文字で読み解く鉄則</h2>
+    <ul>
+      <li><span class="hl">1文字目（T/F）</span>＝予測が<b>当たったか</b>？　True=当たり / False=ハズレ</li>
+      <li><span class="hl">2文字目（P/N）</span>＝AIが<b>何と"予測"したか</b>？　Positive=陽性と予測 / Negative=陰性と予測</li>
+    </ul>
+    <div class="aikotoba">⚠️ 最大の罠：<b>2文字目は「AIの予測」であって「実際の値」ではない！</b><br>
+    例「不良品(陽性)と判定したが実際は正常(陰性)」→ 予測はP、外したのでF → <b>FP（偽陽性）</b>。<br>
+    「実際は陰性」に釣られて TN と答えるのが典型的ミス（TNは"陰性と予測"した時だけ）。</div>
+  </div>
+
+  <!-- クイズ -->
+  <div class="panel">
+    <h2>③ クイズ道場（試験で出る言い回しで特訓）</h2>
+    <div class="q" id="qText"></div>
+    <div class="opts" id="qOpts">
+      <button data-k="TP">TP 真陽性</button>
+      <button data-k="FP">FP 偽陽性</button>
+      <button data-k="FN">FN 偽陰性</button>
+      <button data-k="TN">TN 真陰性</button>
+    </div>
+    <div class="feedback" id="qFb"></div>
+    <div class="score" id="qScore"></div>
+    <button class="next" id="qNext" style="display:none;">次の問題 →</button>
+  </div>
+
+  <!-- 試験のツボ -->
+  <div class="panel">
+    <div class="tubo">
+      <div class="label">📝 試験のツボ</div>
+      <ul>
+        <li><b>適合率(Precision)</b>=TP/(TP+<span class="hl">FP</span>) … <b>早とちり(FP)</b>を気にする指標</li>
+        <li><b>再現率(Recall)</b>=TP/(TP+<span class="hl">FN</span>) … <b>見逃し(FN)</b>を気にする指標</li>
+        <li>がん検診・不良品検出など<b>見逃し厳禁</b>→<span class="hl">再現率</span>重視（FNを減らす）</li>
+        <li>重要メールをスパム判定したくない等<b>早とちり厳禁</b>→<span class="hl">適合率</span>重視（FPを減らす）</li>
+        <li><b>F値</b>=適合率と再現率の調和平均（バランス指標）</li>
+      </ul>
+      <div class="aikotoba">合言葉：<b>「1文字目＝当たりハズレ、2文字目＝AIの予測」「FP＝早とちり、FN＝見逃し」</b></div>
+    </div>
+  </div>
+
+<script>
+  // ===== インタラクティブ判定 =====
+  let pred=1, real=1;
+  const info={
+    TP:{jp:'真陽性',exp:'陽性と予測 → 実際も陽性。正しく検出できた ✅',d:['1文字目 <b>T</b>＝当たり','2文字目 <b>P</b>＝陽性と予測']},
+    FP:{jp:'偽陽性',exp:'陽性と予測 → でも実際は陰性。😱早とちり（無実を疑った）',d:['1文字目 <b>F</b>＝ハズレ','2文字目 <b>P</b>＝陽性と予測']},
+    FN:{jp:'偽陰性',exp:'陰性と予測 → でも実際は陽性。😴見逃し（犯人を逃した）',d:['1文字目 <b>F</b>＝ハズレ','2文字目 <b>N</b>＝陰性と予測']},
+    TN:{jp:'真陰性',exp:'陰性と予測 → 実際も陰性。正しく除外できた ✅',d:['1文字目 <b>T</b>＝当たり','2文字目 <b>N</b>＝陰性と予測']}
+  };
+  function key(){ // pred:1=陽性予測, real:1=実際陽性
+    if(pred===1&&real===1)return'TP';
+    if(pred===1&&real===0)return'FP';
+    if(pred===0&&real===1)return'FN';
+    return'TN';
+  }
+  function render(){
+    const k=key();
+    document.querySelectorAll('.cm .cell').forEach(c=>c.classList.toggle('active',c.dataset.k===k));
+    document.getElementById('vBig').textContent=k+'（'+info[k].jp+'）';
+    document.getElementById('vExp').textContent=info[k].exp;
+    document.getElementById('vDecode').innerHTML=info[k].d.map(t=>'<span class="chip">'+t+'</span>').join('');
+  }
+  document.querySelectorAll('#segPred button').forEach(b=>b.onclick=()=>{
+    pred=+b.dataset.v;
+    document.querySelectorAll('#segPred button').forEach(x=>x.classList.remove('on'));b.classList.add('on');render();
+  });
+  document.querySelectorAll('#segReal button').forEach(b=>b.onclick=()=>{
+    real=+b.dataset.v;
+    document.querySelectorAll('#segReal button').forEach(x=>x.classList.remove('on'));b.classList.add('on');render();
+  });
+  render();
+
+  // ===== クイズ =====
+  const quizzes=[
+    {t:'<span class="scene">[不良品検出]</span> モデルが<b>不良品（陽性）と判定</b>したが、実際には<b>正常（陰性）</b>だった。',a:'FP',
+     why:'予測は陽性(P)、外したのでF → FP。「実際は陰性」に釣られてTNにしないこと！（問169の論点）'},
+    {t:'<span class="scene">[病気の検査]</span> <b>病気（陽性）の人</b>を、モデルが<b>「健康（陰性）」と判定</b>してしまった。',a:'FN',
+     why:'予測は陰性(N)、外したのでF → FN。これが命に関わる「見逃し」。'},
+    {t:'<span class="scene">[スパム判定]</span> <b>正常なメール（陰性）</b>を、モデルが正しく<b>「正常（陰性）」と判定</b>した。',a:'TN',
+     why:'予測は陰性(N)、当たったのでT → TN。正しく除外できた。'},
+    {t:'<span class="scene">[顔認証]</span> <b>本人（陽性）</b>を、モデルが正しく<b>「本人（陽性）」と判定</b>した。',a:'TP',
+     why:'予測は陽性(P)、当たったのでT → TP。正しく検出できた。'},
+    {t:'<span class="scene">[スパム判定]</span> <b>重要な正常メール（陰性）</b>を、モデルが<b>「スパム（陽性）」と誤判定</b>した。',a:'FP',
+     why:'予測は陽性(P)、外したのでF → FP。早とちりで重要メールを巻き込んだ。'},
+    {t:'<span class="scene">[不良品検出]</span> <b>不良品（陽性）</b>を、モデルが見逃さず<b>「不良品（陽性）」と判定</b>した。',a:'TP',
+     why:'予測は陽性(P)、当たったのでT → TP。'},
+    {t:'<span class="scene">[病気の検査]</span> <b>健康な人（陰性）</b>を、モデルが<b>「病気（陽性）」と判定</b>して不安にさせた。',a:'FP',
+     why:'予測は陽性(P)、外したのでF → FP。健康なのに脅かす早とちり。'},
+    {t:'<span class="scene">[不良品検出]</span> <b>不良品（陽性）</b>を、モデルが<b>「正常（陰性）」と判定</b>して出荷してしまった。',a:'FN',
+     why:'予測は陰性(N)、外したのでF → FN。危険な見逃し（出荷事故に）。'}
+  ];
+  let order=[...Array(quizzes.length).keys()], qi=0, score=0, done=0, answered=false;
+  // 簡易シャッフル（毎回順番を変える）
+  for(let i=order.length-1;i>0;i--){const j=Math.floor((i*7+3)%(i+1));[order[i],order[j]]=[order[j],order[i]];}
+  function showQ(){
+    answered=false;
+    const q=quizzes[order[qi]];
+    document.getElementById('qText').innerHTML=q.t;
+    document.getElementById('qFb').textContent='';document.getElementById('qFb').className='feedback';
+    document.getElementById('qNext').style.display='none';
+    document.querySelectorAll('#qOpts button').forEach(b=>{b.className='';b.disabled=false;});
+  }
+  document.querySelectorAll('#qOpts button').forEach(b=>b.onclick=()=>{
+    if(answered)return;answered=true;done++;
+    const q=quizzes[order[qi]],correct=q.a,fb=document.getElementById('qFb');
+    document.querySelectorAll('#qOpts button').forEach(x=>{
+      if(x.dataset.k===correct)x.classList.add('correct');
+      else if(x===b)x.classList.add('wrong');
+      x.disabled=true;
+    });
+    if(b.dataset.k===correct){score++;fb.className='feedback ok';fb.innerHTML='⭕ 正解！ '+q.why;}
+    else{fb.className='feedback ng';fb.innerHTML='❌ 正解は <b>'+correct+'</b>。'+q.why;}
+    document.getElementById('qScore').textContent='スコア：'+score+' / '+done;
+    document.getElementById('qNext').style.display='inline-block';
+  });
+  document.getElementById('qNext').onclick=()=>{qi=(qi+1)%quizzes.length;showQ();};
+  showQ();
+</script>
+</body>
+</html>
